@@ -9,36 +9,30 @@ server <- function(input, output,session) {
   hideTab("mainTabset", "Volcano Plot")
   hideTab("mainTabset", "Pathway Analysis")
   
+  initializeSampleData <- function(sampleTable) {
+    sampleTable$Group <- NA
+    sampleTable
+  }
+
   state <- list(
-    # Get selected dataset
-    selectedData = reactive({
-      data <- srcContent[[input$dataSet]][["sampleData"]]
-    }),
-    #Reactive to store selected cell lines
-    groups = reactiveValues(data = list(), counts = list()),
-    #Reactive to store updated group information
-    updatedData = reactiveVal(),
+    #Reactive to store sample data with group assignments
+    sampleData = reactiveVal(),
     # Reactive to store gene ranks for fgsea
     fgseaStats = reactiveValues(geneRanking = NULL)
   )
   
   #Initialize data with Group column 
   observe({
-    data <- state$selectedData()
-    if(!"Group" %in% colnames(data)) {
-      data$Group <- NA # Initialize Group column with NA
-    }
-    
-    state$updatedData(data)
+    state$sampleData(initializeSampleData(srcContent[[input$dataSet]][["sampleData"]]))
   })
   
   #Note to self: Filter datasets (p2) 
   output$dataSetTable <- DT::renderDT({
-    datatable(state$updatedData(),
+    datatable(state$sampleData(),
               #Column selection below to restrict to cell line, tissue type information (source + OncoTree), and Group.
               options = list(
                 columnDefs=list(
-                  list(visible = FALSE, targets = c(0,5,6,7:(ncol(state$updatedData())-1)))
+                  list(visible = FALSE, targets = c(0,5,6,7:(ncol(state$sampleData())-1)))
                 )
               ),
               filter = 'top',
@@ -58,43 +52,17 @@ server <- function(input, output,session) {
     if(length(selectedRows) > 2 && groupName != ""){
       
       #Update Group column 
-      v <- state$updatedData()
-      #get group counts
-      if (!is.null(v) && !"Group" %in% colnames(v)) {
-        v$Group <- rep(NA, nrow(v))
-      }
-      v$Group[selectedRows] <- groupName
-      state$updatedData(v)
+      sampleTable <- state$sampleData()
+      sampleTable$Group[selectedRows] <- groupName
+      state$sampleData(sampleTable)
       
-      # Manage group counts
-      if (!is.null(state$groups$counts[[groupName]])) {
-        state$groups$counts[[groupName]] <- state$groups$counts[[groupName]] + length(selectedRows)
-      } else {
-        state$groups$counts[[groupName]] <- length(selectedRows)
-      }
-      
-      #Get selected data
-      selectedSamples <- state$selectedData()[selectedRows, ]
-      
-      #Get cell line names
-      selectedCellLines <- selectedSamples$Name
-      
-      #Access database
-      dataBase <- srcContent[[input$dataSet]]
-      rnaSeqData <- dataBase[["molPharmData"]][["xsq"]]
-      
-      #Extract RNA-Seq with selected cell line 
-      selectedRnaSeqData <- rnaSeqData[, selectedCellLines, drop = FALSE]
-      
-      #Add RNA Seq data to groups list 
-      state$groups$data[[groupName]] <- selectedRnaSeqData
+      groupCount <- sum(sampleTable$Group == groupName, na.rm = TRUE)
       
       #Reset selection in table
       DT::selectRows(dataSetTable_proxy, NULL)
       
       #Group creation notification
-      #shiny::showNotification(paste("Group", groupName, "created with", length(selectedCellLines), "cell lines"))
-      shiny::showNotification(paste("Group", groupName, "now has", state$groups$counts[[groupName]], "cell lines"))
+      shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
       
       #Clear UI
       updateSelectInput(session, "selectIn1", selected = "")
@@ -109,11 +77,13 @@ server <- function(input, output,session) {
   })
   
   output$groupInfoDisplay <- renderUI({
-    if (length(state$groups$counts) > 0) {
-      do.call(fluidRow, lapply(names(state$groups$counts), function(gname) {
+    groupCounts <- table(na.omit(state$sampleData()$Group))
+
+    if (length(groupCounts) > 0) {
+      do.call(fluidRow, lapply(names(groupCounts), function(gname) {
         tagList(
           column(6, strong(gname)),
-          column(6, paste(state$groups$counts[[gname]], "cell lines"))
+          column(6, paste(groupCounts[[gname]], "cell lines"))
         )
       }))
     } else {
@@ -123,7 +93,7 @@ server <- function(input, output,session) {
   
   # Search by tissue type
   tissueSelectionOptions <- reactive({
-    data <- state$selectedData()
+    data <- state$sampleData()
     #choices <- unique(data$OncoTree1)
     uniqueTissues <- unique(paste(data$OncoTree1, data$OncoTree2, sep = ": "))
     uniqueOncoTree1 <- unique(data$OncoTree1)
@@ -138,7 +108,7 @@ server <- function(input, output,session) {
   
   observeEvent(input$tissueGroup, {
     selectedTissues <- input$tissueGroup
-    data <- state$selectedData()
+    data <- state$sampleData()
     selectedRows <- integer(0)
     for (selection in selectedTissues) {
       if (selection %in% data$OncoTree1) {
@@ -159,7 +129,7 @@ server <- function(input, output,session) {
   
   #runs analysis but no counts
   getUniqueGroups <- reactive({
-    data <- state$updatedData()
+    data <- state$sampleData()
     if("Group" %in% colnames(data)) {
       uniqueGroups <- unique(data$Group)
       return(na.omit(uniqueGroups))
@@ -200,8 +170,12 @@ server <- function(input, output,session) {
     withProgress(message = 'Analysis in progress', {
       if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
-        rnaSeqData1 <- state$groups$data[[input$selectIn1]]
-        rnaSeqData2 <- state$groups$data[[input$selectIn2]]
+        sampleTable <- state$sampleData()
+        rnaSeqData <- srcContent[[input$dataSet]][["molPharmData"]][["xsq"]]
+        controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
+        testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]
+        rnaSeqData1 <- rnaSeqData[, controlCellLines, drop = FALSE]
+        rnaSeqData2 <- rnaSeqData[, testCellLines, drop = FALSE]
         
         #Increment progress 
         incProgress(0.1, detail = "Calculating differential expression...")
@@ -398,15 +372,11 @@ server <- function(input, output,session) {
   
   # Reset selections
   observeEvent(input$resetSelections, {
-    #Reset groups and expression data
-    state$groups$data <- list()
-    state$groups$counts <- NULL
+    #Reset expression data
     state$fgseaStats$geneRanking <- NULL
     
-    #Reset updated data to its initial state without selections
-    data <- srcContent[[input$dataSet]][["sampleData"]]
-    data$Group <- NA # Reinitialize Group column with NA
-    state$updatedData(data) # Update the reactiveVal with reset data
+    #Reset sample data to its initial state without selections
+    state$sampleData(initializeSampleData(srcContent[[input$dataSet]][["sampleData"]]))
     
     #Reset all UI elements 
     updateSelectInput(session, "selectIn1", selected = "")
