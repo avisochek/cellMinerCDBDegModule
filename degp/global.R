@@ -41,11 +41,6 @@ for(y in 1:length(dataSourceChoices)){
   }
 }
 srcContent = readRDS("srcContent.rds")
-# 
-srcContentReactive <- reactive({
- 
-  return(srcContent)
-})
 
 # Define gene sets for pathway analysis 
 hallmarkGeneSets <- gmtPathways("h.all.v2023.2.Hs.symbols.gmt")
