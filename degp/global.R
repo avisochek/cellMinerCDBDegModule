@@ -19,10 +19,10 @@ library(dplyr)
 ### --------------------------------------------------------------------------------------------------
 ### LOAD CONFIGURATION AND REQUIRED DATA SOURCE PACKAGES.
 ### --------------------------------------------------------------------------------------------------
-config <- jsonlite::fromJSON("config.json")
+config <- jsonlite::fromJSON("degp/config.json")
 
-source("calculateDEG.R", local = TRUE)
-source("combineGeneSets.R", local = TRUE)
+source("degp/calculateDEG.R", local = TRUE)
+source("degp/combineGeneSets.R", local = TRUE)
 
 dataSourceChoices <- setNames(names(config),
                               vapply(config, function(x) { x[["displayName"]] },
@@ -40,11 +40,11 @@ for(y in 1:length(dataSourceChoices)){
     options =  paste0(options,"<option value=",dataSourceChoices[y],">",names(dataSourceChoices)[y],"</option>;");
   }
 }
-srcContent = readRDS("srcContent.rds")
+srcContent = readRDS("degp/srcContent.rds")
 
 # Define gene sets for pathway analysis 
-hallmarkGeneSets <- gmtPathways("h.all.v2023.2.Hs.symbols.gmt")
-dtbGeneSets <- gmtPathways("220411.Genelist.gmt")
+hallmarkGeneSets <- gmtPathways("degp/h.all.v2023.2.Hs.symbols.gmt")
+dtbGeneSets <- gmtPathways("degp/220411.Genelist.gmt")
 
 # Combine the gene sets
 combinedGeneSets <- combineGeneSets(hallmarkGeneSets, dtbGeneSets)

@@ -1,9 +1,10 @@
-source("global.R", local = TRUE)
-source("ui.R", local = TRUE)
-source("analysis_outputs.R", local = TRUE)
+source("degp/global.R", local = TRUE)
+source("degp/ui.R", local = TRUE)
+source("degp/analysis_outputs.R", local = TRUE)
 
 ### Server --------------------------------------------------------------------------------------------------
-server <- function(input, output,session) {
+degpServer <- function(id) {
+  moduleServer(id, function(input, output, session) {
   
   hideTab("mainTabset", "Results")
   hideTab("mainTabset", "Heatmap")
@@ -104,7 +105,7 @@ server <- function(input, output,session) {
   })
   
   output$tissueSelector <- renderUI({
-    selectizeInput("tissueGroup", "Select Tissue", choices = tissueSelectionOptions(), selected = character(0), multiple = TRUE)
+    selectizeInput(session$ns("tissueGroup"), "Select Tissue", choices = tissueSelectionOptions(), selected = character(0), multiple = TRUE)
   })
   
   observeEvent(input$tissueGroup, {
@@ -144,7 +145,7 @@ server <- function(input, output,session) {
   observe({
     # isolate({
     output$choice1 <-renderUI({
-      selectizeInput("selectIn1", "Select Control Group:", choices = c(" ", getUniqueGroups()))
+      selectizeInput(session$ns("selectIn1"), "Select Control Group:", choices = c(" ", getUniqueGroups()))
     })
     # })
   })
@@ -152,7 +153,7 @@ server <- function(input, output,session) {
   observe({
     # isolate({
     output$choice2 <- renderUI({
-      selectizeInput("selectIn2", "Select Test Group:", choices = c(" ", getUniqueGroups()))
+      selectizeInput(session$ns("selectIn2"), "Select Test Group:", choices = c(" ", getUniqueGroups()))
     })
     # })
   })
@@ -266,5 +267,5 @@ server <- function(input, output,session) {
   
   
   
+  })
 }
-shinyApp(ui, server)

@@ -1,6 +1,8 @@
 ### User Interface --------------------------------------------------------------------------------------------------
 
-ui <- fluidPage(
+degpUI <- function(id) {
+  ns <- NS(id)
+  fluidPage(
   useShinyjs(),
   tags$head(
     tags$style(HTML("
@@ -19,46 +21,45 @@ ui <- fluidPage(
                #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
                sidebarPanel(
                  HTML(
-                   paste("<label class='dataset' for='dataSet'>Select Dataset</label>",
-                         "<select id='dataSet'>", options, "</select>")
+                   paste0("<label class='dataset' for='", ns("dataSet"), "'>Select Dataset</label>",
+                          "<select id='", ns("dataSet"), "'>", options, "</select>")
                  ),
                  br(),
                  br(),
                  h4("Please select cell lines by clicking on a row in the table"),
                  br(),
                  h4("Or search by tissue type"),
-                 uiOutput("tissueSelector"),
-                 textInput("groupName", "Group Name", value = ""),
-                 actionButton(inputId = "createGroup", label = "Add to Group"),
+                 uiOutput(ns("tissueSelector")),
+                 textInput(ns("groupName"), "Group Name", value = ""),
+                 actionButton(inputId = ns("createGroup"), label = "Add to Group"),
                  br(),
                  br(),
-                 uiOutput("groupInfoDisplay"),
+                 uiOutput(ns("groupInfoDisplay")),
                  br(),
-                 uiOutput("choice1"),
-                 uiOutput("choice2"),
-                 actionButton("runAnalysis", "Run Analysis"),
-                 #uiOutput("groupNamesDisplay"), 
-                 actionButton("resetSelections", "Reset Selections")
+                 uiOutput(ns("choice1")),
+                 uiOutput(ns("choice2")),
+                 actionButton(ns("runAnalysis"), "Run Analysis"),
+                 actionButton(ns("resetSelections"), "Reset Selections")
                ),
                mainPanel(
-                 tabsetPanel(id = "mainTabset",
+                 tabsetPanel(id = ns("mainTabset"),
                              tabPanel("Input",
                                       fluidRow(
-                                        DT::DTOutput("dataSetTable")
+                                        DT::DTOutput(ns("dataSetTable"))
                                       )
                              ),
                              tabPanel("Results",
                                       fluidRow(
-                                        withSpinner(DT::DTOutput("resultsTable")), 
-                                        downloadButton("downloadResults", "Download Results")
+                                        withSpinner(DT::DTOutput(ns("resultsTable"))),
+                                        downloadButton(ns("downloadResults"), "Download Results")
                                       )),
                              tabPanel("Volcano Plot",
-                                      plotlyOutput("volcanoPlot")), 
+                                      plotlyOutput(ns("volcanoPlot"))),
                              tabPanel("Heatmap",
-                                      plotlyOutput("heatmapPlot")),
+                                      plotlyOutput(ns("heatmapPlot"))),
                              tabPanel("Pathway Analysis",
                                       # fluidRow(
-                                      #   column(12, 
+                                      #   column(12,
                                       #          div(style = "float: right;",
                                       #              selectInput("geneSetChoice", "Choose Gene Set for Pathway Analysis:",
                                       #                          choices = c("Hallmark Pathways Gene Set" = "hallmark",
@@ -67,10 +68,11 @@ ui <- fluidPage(
                                       #          )
                                       # ),
                                       #actionButton("updatePathway", "Update Pathway Analysis"),
-                                      DT::DTOutput("pathwayAnalysisResults"))
+                                      DT::DTOutput(ns("pathwayAnalysisResults")))
                  )
                )
              )
     )
   )
-)
+  )
+}
