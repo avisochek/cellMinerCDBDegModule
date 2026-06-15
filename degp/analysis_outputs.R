@@ -17,20 +17,6 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
   
   
   output$volcanoPlot <- renderPlotly({
-    # # Generate volcano plot
-    # degResults$Significance <- ifelse(degResults$P_Value < 0.05 & abs(degResults$Log2_Fold_Change) > 2, "Significant", "Not Significant")
-    # 
-    # y_limit <- max(-log10(degResults$P_Value)) * 1.5 # Extend limit by 50% for aesthetics
-    # 
-    # plot <- ggplot(degResults, aes(x = Log2_Fold_Change, y = -log10(P_Value), color = Significance)) +
-    #   geom_point(size = 0.5, alpha = 0.5) +
-    #   theme_minimal() +
-    #   scale_color_manual(values = c("Significant" = "red", "Not Significant" = "blue")) +
-    #   labs(title = "Volcano Plot of Differentially Expressed Genes",
-    #        x = "Log2 Fold Change",
-    #        y = "-Log10 P-value")
-    # 
-    # ggplotly(plot)
     
     degResults <- degResults[abs(degResults$Log2_Fold_Change) >= 0.10, ]
     degResults$P_Value[degResults$P_Value == 0] <- 10e-10
@@ -39,41 +25,33 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
     log_FC = degResults$Log2_Fold_Change
     log_pval = round(-log10(degResults$P_Value), 2)
     Significant=rep("Not Significant",length(log_FC))
-    Significant[which(degResults$P_Value<0.05 & abs(degResults$Log2_Fold_Change)>=2)]="Log2 FoldChange > +/- 2 & P-Value < 0.05"
-    Significant[which(degResults$P_Value<0.05 & abs(degResults$Log2_Fold_Change)<1)]="P-Value < 0.05"
-    Significant[which(degResults$P_Value>=0.05 & abs(degResults$Log2_Fold_Change)>=1)]="Log2 FoldChange > +/- 1"
+    Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change>=2)]="Upregulated: Log2 FoldChange > 2 & P-Value < 0.05"
+    Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change<=-2)]="Downregulated: Log2 FoldChange < 2 & P-Value < 0.05"
     
     gene = degResults$Gene
-    volcano_data=as.data.frame(cbind(gene,log_FC,log_pval,Significant))
+    volcano_data=data.frame(gene,log_FC,log_pval,Significant)
     
-    # Create the plotly object
-    volcano_plot <- plot_ly(
-      type = 'scatter',
-      data = volcano_data,
-      x = ~log_FC,
-      y = ~log_pval,
-      text = ~gene,
-      #mode = "markers",
-      color = ~Significant,
-      colors = c("blue", "black", "red")
-    )
-    
-    
-    # Configure the layout of the plot
-    volcano_plot <- layout(
-      volcano_plot,
-      title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
-      xaxis = list(
-        title = "Log2 Fold Change",
-        range = c(-5, 5),
-        tickvals = seq(-5, 5, by = 0.5)
-      ),
-      yaxis = list(
-        title = "-Log10 P-Value",
-        range = c(0, 10),
-        tickvals = seq(0, 10, by = 0.5)
-      )
-    )
+    volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant, text = gene)) +
+      geom_point() +
+      geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+      geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "black") +
+      scale_color_manual(values = c("blue", "grey", "red")) +
+      labs(
+        title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
+        x = "Log2 Fold Change",
+        y = "-Log10 P-Value"
+      ) +
+      scale_x_continuous(
+        limits = c(-5, 5),
+        breaks = seq(-5, 5, by = 0.5)
+      ) +
+      scale_y_continuous(
+        limits = c(0, 10),
+        breaks = seq(0, 10, by = 0.5)
+      ) +
+      theme_classic()
+  
+    volcano_plot <- ggplotly(volcano_plot, tooltip = "text")
     
     volcano_plot
     
