@@ -23,7 +23,7 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
     
     
     log_FC = degResults$Log2_Fold_Change
-    log_pval = round(-log10(degResults$P_Value), 2)
+    log_pval = -log10(degResults$P_Value)
     Significant=rep("Not Significant",length(log_FC))
     Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change>=2)]="Upregulated: Log2 FoldChange > 2 & P-Value < 0.05"
     Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change<=-2)]="Downregulated: Log2 FoldChange < 2 & P-Value < 0.05"
@@ -115,5 +115,75 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
    
    formatRound(pathwayTable, columns = c("pval", "padj", "ES", "NES"), digits = 2)
    
+  })
+
+  output$pathwayAnalysisDotPlot <- renderPlot({
+    pathwayPlotData <- as.data.frame(fgseaResults) %>%
+      filter(startsWith(pathway, "HALLMARK_"), !is.na(padj)) %>%
+      mutate(
+        .sign = if_else(NES >= 0, "activated", "suppressed"),
+        leadingEdgeCount = lengths(leadingEdge)
+      )
+
+    shiny::validate(
+      shiny::need(nrow(pathwayPlotData) > 0, "No Hallmark FGSEA pathways available.")
+    )
+
+    nesLimit <- max(abs(pathwayPlotData$NES), na.rm = TRUE)
+
+    ggplot(pathwayPlotData, aes(x = NES, y = reorder(pathway, NES), color = .sign, size = leadingEdgeCount)) +
+      geom_point() +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+      scale_x_continuous(limits = c(-nesLimit, nesLimit)) +
+      scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
+      scale_size_continuous(name = "Leading edge") +
+      labs(
+        title = paste(input$selectIn1, "vs", input$selectIn2),
+        x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
+        y = NULL
+      ) +
+      theme_classic()
+  })
+
+  output$pathwayAnalysisTopDotPlot <- renderPlot({
+    pathwayPlotData <- as.data.frame(fgseaResults) %>%
+      filter(startsWith(pathway, "HALLMARK_"), !is.na(padj)) %>%
+      mutate(
+        .sign = if_else(NES >= 0, "activated", "suppressed"),
+        leadingEdgeCount = lengths(leadingEdge)
+      )
+
+    shiny::validate(
+      shiny::need(nrow(pathwayPlotData) > 0, "No Hallmark FGSEA pathways available.")
+    )
+
+    nesLimit <- max(abs(pathwayPlotData$NES), na.rm = TRUE)
+    topUpregulated <- pathwayPlotData %>%
+      filter(NES > 0) %>%
+      slice_max(order_by = NES, n = 10, with_ties = FALSE) %>%
+      mutate(.direction = "Top 10 upregulated")
+    topDownregulated <- pathwayPlotData %>%
+      filter(NES < 0) %>%
+      slice_min(order_by = NES, n = 10, with_ties = FALSE) %>%
+      mutate(.direction = "Top 10 downregulated")
+    topPathwayPlotData <- bind_rows(topDownregulated, topUpregulated)
+
+    shiny::validate(
+      shiny::need(nrow(topPathwayPlotData) > 0, "No upregulated or downregulated Hallmark FGSEA pathways available.")
+    )
+
+    ggplot(topPathwayPlotData, aes(x = NES, y = reorder(pathway, NES), color = .sign, size = leadingEdgeCount)) +
+      geom_point() +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+      facet_wrap(~ .direction, nrow = 1, scales = "free_y") +
+      scale_x_continuous(limits = c(-nesLimit, nesLimit)) +
+      scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
+      scale_size_continuous(name = "Leading edge") +
+      labs(
+        title = paste(input$selectIn1, "vs", input$selectIn2),
+        x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
+        y = NULL
+      ) +
+      theme_classic()
   })
 }

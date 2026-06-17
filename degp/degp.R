@@ -216,7 +216,7 @@ degpServer <- function(id, srcContentReactive) {
         #Perform FGSEA analysis
         fgseaResults <- fgsea(pathways = combinedGeneSets,
                               stats = state$fgseaStats$geneRanking,
-                              scoreType = "pos")
+                              scoreType = "std")
         
         fgseaResults <- fgseaResults[with(fgseaResults, order(-NES)), ]
         fgseaResults <- fgseaResults[, c("pathway", "pval", "padj", "ES", "NES", "leadingEdge")] # add leading edge, add datatable scroll
@@ -259,6 +259,8 @@ degpServer <- function(id, srcContentReactive) {
     output$resultsTable <- DT::renderDT({datatable(data.frame())})  
     output$volcanoPlot <- renderPlot({NULL})  
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
+    output$pathwayAnalysisDotPlot <- renderPlot({NULL}) 
+    output$pathwayAnalysisTopDotPlot <- renderPlot({NULL}) 
     
     #Clear data table 
     DT::selectRows(dataSetTable_proxy, NULL)
