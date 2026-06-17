@@ -3,7 +3,7 @@ source("degp/ui.R", local = TRUE)
 source("degp/analysis_outputs.R", local = TRUE)
 
 ### Server --------------------------------------------------------------------------------------------------
-degpServer <- function(id) {
+degpServer <- function(id, srcContentReactive) {
   moduleServer(id, function(input, output, session) {
   
   hideTab("mainTabset", "Results")
@@ -25,7 +25,7 @@ degpServer <- function(id) {
   
   #Initialize data with Group column 
   observe({
-    state$sampleData(initializeSampleData(srcContent[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
   })
   
   #Note to self: Filter datasets (p2) 
@@ -173,7 +173,7 @@ degpServer <- function(id) {
       if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
-        rnaSeqData <- srcContent[[input$dataSet]][["molPharmData"]][["xsq"]]
+        rnaSeqData <- srcContentReactive()[[input$dataSet]][["molPharmData"]][["xsq"]]
         controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
         testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]
         rnaSeqData1 <- rnaSeqData[, controlCellLines, drop = FALSE]
@@ -239,7 +239,7 @@ degpServer <- function(id) {
     state$fgseaStats$geneRanking <- NULL
     
     #Reset sample data to its initial state without selections
-    state$sampleData(initializeSampleData(srcContent[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
     
     #Reset all UI elements 
     updateSelectInput(session, "selectIn1", selected = "")

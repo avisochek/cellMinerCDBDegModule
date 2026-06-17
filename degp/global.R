@@ -40,8 +40,6 @@ for(y in 1:length(dataSourceChoices)){
     options =  paste0(options,"<option value=",dataSourceChoices[y],">",names(dataSourceChoices)[y],"</option>;");
   }
 }
-srcContent = readRDS("degp/srcContent.rds")
-
 # Define gene sets for pathway analysis 
 hallmarkGeneSets <- gmtPathways("degp/h.all.v2023.2.Hs.symbols.gmt")
 dtbGeneSets <- gmtPathways("degp/220411.Genelist.gmt")
