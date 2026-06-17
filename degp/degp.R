@@ -185,7 +185,7 @@ degpServer <- function(id, srcContentReactive) {
         #Calculate differential expression
         degResults <- calculateDEG(rnaSeqData1, rnaSeqData2)
         # Order by p_value, then fold change
-        degResults <- degResults[with(degResults, order(P_Value, -Log2_Fold_Change)), ]
+        degResults <- degResults[with(degResults, order(P.Value, -logFC)), ]
         
         # #Increment progress
         incProgress(0.2, detail = "Rendering results...")
@@ -209,8 +209,8 @@ degpServer <- function(id, srcContentReactive) {
         
         
         #Calculate FGSEA ranking metric as fold change over (p-value + 1)
-        geneRanking <- degResults$Log2_Fold_Change / ((degResults$P_Value) + 1)
-        names(geneRanking) <- degResults$Gene
+        geneRanking <- degResults$logFC / ((degResults$P.Value) + 1)
+        names(geneRanking) <- sub("^xsq", "", rownames(degResults))
         
         state$fgseaStats$geneRanking <- sort(geneRanking, decreasing = TRUE)
         #Perform FGSEA analysis

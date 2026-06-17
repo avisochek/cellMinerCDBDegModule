@@ -18,17 +18,17 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
   
   output$volcanoPlot <- renderPlotly({
     
-    degResults <- degResults[abs(degResults$Log2_Fold_Change) >= 0.10, ]
-    degResults$P_Value[degResults$P_Value == 0] <- 10e-10
+    degResults <- degResults[abs(degResults$logFC) >= 0.10, ]
+    degResults$P.Value[degResults$adj.P.Val == 0] <- 10e-10
     
     
-    log_FC = degResults$Log2_Fold_Change
-    log_pval = -log10(degResults$P_Value)
+    log_FC = degResults$logFC
+    log_pval = -log10(degResults$adj.P.Val)
     Significant=rep("Not Significant",length(log_FC))
-    Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change>=2)]="Upregulated: Log2 FoldChange > 2 & P-Value < 0.05"
-    Significant[which(degResults$P_Value<0.05 & degResults$Log2_Fold_Change<=-2)]="Downregulated: Log2 FoldChange < 2 & P-Value < 0.05"
+    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC>=2)]="Upregulated: Log2 FoldChange > 2 & FDR < 0.05"
+    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-2)]="Downregulated: Log2 FoldChange < 2 & FDR < 0.05"
     
-    gene = degResults$Gene
+    gene = sub("^xsq", "", rownames(degResults))
     volcano_data=data.frame(gene,log_FC,log_pval,Significant)
     
     volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant, text = gene)) +
@@ -39,7 +39,7 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
       labs(
         title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
         x = "Log2 Fold Change",
-        y = "-Log10 P-Value"
+        y = "-Log10 FDR"
       ) +
       scale_x_continuous(
         limits = c(-5, 5),
@@ -61,11 +61,11 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
   ## Heatmap
   output$heatmapPlot <- renderPlotly({
     
-    topUpregulated <- head(degResults[order(degResults$P_Value, -degResults$Log2_Fold_Change), ], 10)
-    topDownregulated <- head(degResults[order(degResults$P_Value, degResults$Log2_Fold_Change), ], 10)
+    topUpregulated <- head(degResults[order(degResults$P.Value, -degResults$logFC), ], 10)
+    topDownregulated <- head(degResults[order(degResults$P.Value, degResults$logFC), ], 10)
     
     topGenes <- rbind(topDownregulated, topUpregulated)
-    geneNames <- paste0("xsq", topGenes$Gene)
+    geneNames <- c(rownames(topDownregulated), rownames(topUpregulated))
     #geneNames <- topGenes$Gene
     
     
