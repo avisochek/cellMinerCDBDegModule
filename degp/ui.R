@@ -31,15 +31,16 @@ degpUI <- function(id) {
                  h4("Or search by tissue type"),
                  uiOutput(ns("tissueSelector")),
                  textInput(ns("groupName"), "Group Name", value = ""),
-                 actionButton(inputId = ns("createGroup"), label = "Add to Group"),
+                 actionButton(inputId = ns("createGroup"), label = "Create Group"),
+                 actionButton(inputId = ns("clearGroups"), label = "Clear Groups"),
                  br(),
                  br(),
                  uiOutput(ns("groupInfoDisplay")),
                  br(),
-                 uiOutput(ns("choice1")),
-                 uiOutput(ns("choice2")),
+                 selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
+                 selectizeInput(ns("selectIn2"), "Select Test Group:", choices = c("")),
                  actionButton(ns("runAnalysis"), "Run Analysis"),
-                 actionButton(ns("resetSelections"), "Reset Selections")
+                 actionButton(ns("reset"), "Reset")
                ),
                mainPanel(
                  tabsetPanel(id = ns("mainTabset"),

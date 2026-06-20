@@ -67,8 +67,8 @@ degpServer <- function(id, srcContentReactive) {
       shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
       
       #Clear UI
-      updateSelectInput(session, "selectIn1", selected = "")
-      updateSelectInput(session, "selectIn2", selected = "")
+      updateSelectizeInput(session, "selectIn1", selected = "")
+      updateSelectizeInput(session, "selectIn2", selected = "")
       updateTextInput(session, "groupName", value = "")
       updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
     }
@@ -76,6 +76,19 @@ degpServer <- function(id, srcContentReactive) {
       shiny::showNotification("Please select at least 3 cell lines to create a group", type = "error")
     }
     
+  })
+  
+  observeEvent(input$clearGroups, {
+    state$fgseaStats$geneRanking <- NULL
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    
+    updateSelectizeInput(session, "selectIn1", selected = "")
+    updateSelectizeInput(session, "selectIn2", selected = "")
+    updateTextInput(session, "groupName", value = "")
+    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
+    
+    DT::selectRows(dataSetTable_proxy, NULL)
+    shiny::showNotification("Groups cleared")
   })
   
   output$groupInfoDisplay <- renderUI({
@@ -141,21 +154,10 @@ degpServer <- function(id, srcContentReactive) {
     }
   })
   
-  # Allow user to select group 1 for contrast
   observe({
-    # isolate({
-    output$choice1 <-renderUI({
-      selectizeInput(session$ns("selectIn1"), "Select Control Group:", choices = c(" ", getUniqueGroups()))
-    })
-    # })
-  })
-  # Allow user to select group 2 for contrast
-  observe({
-    # isolate({
-    output$choice2 <- renderUI({
-      selectizeInput(session$ns("selectIn2"), "Select Test Group:", choices = c(" ", getUniqueGroups()))
-    })
-    # })
+    groupChoices <- c("", getUniqueGroups())
+    updateSelectizeInput(session, "selectIn1", choices = groupChoices)
+    updateSelectizeInput(session, "selectIn2", choices = groupChoices)
   })
   
   
@@ -234,24 +236,23 @@ degpServer <- function(id, srcContentReactive) {
   })
   
   # Reset selections
-  observeEvent(input$resetSelections, {
+  observeEvent(input$reset, {
     #Reset expression data
     state$fgseaStats$geneRanking <- NULL
     
-    #Reset sample data to its initial state without selections
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
-    
+    # #Reset sample data to its initial state without selections
+    # state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+
     #Reset all UI elements 
-    updateSelectInput(session, "selectIn1", selected = "")
-    updateSelectInput(session, "selectIn2", selected = "")
-    updateTextInput(session, "groupName", value = "")
-    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
-    
+    # updateSelectizeInput(session, "selectIn1", selected = "")
+    # updateSelectizeInput(session, "selectIn2", selected = "")
+    # updateTextInput(session, "groupName", value = "")
+    # updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
+
     #Return to first tab 
-    #updateTabsetPanel(session, "mainTabset", selected = "Input")
-    showTab("mainTabset", "Input")
+    showTab("mainTabset", "Input", select = TRUE)
     hideTab("mainTabset", "Results")
-    # hideTab("mainTabset", "Heatmap")
+    hideTab("mainTabset", "Heatmap")
     hideTab("mainTabset", "Volcano Plot")
     hideTab("mainTabset", "Pathway Analysis")
     
