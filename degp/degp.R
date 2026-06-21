@@ -169,6 +169,11 @@ degpServer <- function(id, srcContentReactive) {
   
   # Run the analysis and return a datatable of results
   observeEvent(input$runAnalysis,{
+    if (!is.null(input$selectIn1) && input$selectIn1 != "" && input$selectIn1 == input$selectIn2) {
+      shiny::showNotification("Please select two different groups to run contrast", type = "error")
+      return()
+    }
+    
     hideTab("mainTabset", "Input")
     showTab("mainTabset", "Results", select = TRUE)
     showTab("mainTabset", "Heatmap")
