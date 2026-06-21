@@ -97,6 +97,8 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
               colors = colorRampPalette(c("navy", "white", "firebrick"))(255),
               show_rownames = TRUE,
               show_colnames = TRUE,
+              show_dendrogram = c(FALSE, FALSE),
+              margins = c(NA, NA, 150, NA), ## Needed to make room for title
               scale = "row",
               # grid_gap = 1,
               fontsize_col = 5,
