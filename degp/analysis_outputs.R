@@ -30,7 +30,7 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
     log_pval = -log10(degResults$adj.P.Val)
     Significant=rep("Not Significant",length(log_FC))
     Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC>=2)]="Upregulated: Log2 FoldChange > 2 & FDR < 0.05"
-    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-2)]="Downregulated: Log2 FoldChange < 2 & FDR < 0.05"
+    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-2)]="Downregulated: Log2 FoldChange < -2 & FDR < 0.05"
     
     gene = sub("^xsq", "", rownames(degResults))
     volcano_data=data.frame(gene,log_FC,log_pval,Significant)
@@ -39,7 +39,11 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
       geom_point() +
       geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
       geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "black") +
-      scale_color_manual(values = c("blue", "grey", "red")) +
+      scale_color_manual(values = c(
+        "Upregulated: Log2 FoldChange > 2 & FDR < 0.05" = "red",
+        "Downregulated: Log2 FoldChange < -2 & FDR < 0.05" = "blue",
+        "Not Significant" = "grey"
+      )) +
       labs(
         title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
         x = "Log2 Fold Change",
