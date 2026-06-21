@@ -22,10 +22,16 @@ degpServer <- function(id, srcContentReactive) {
     # Reactive to store gene ranks for fgsea
     fgseaStats = reactiveValues(geneRanking = NULL)
   )
-  
+
+## Prepare Input For DEG Analysis,
+## Remove datasets that do not have RNAseq data
+  srcContentReactiveCleaned <- reactive({
+    Filter(function(x) !is.null(x$molPharmData$xsq), srcContentReactive())
+  })
+
   #Initialize data with Group column 
   observe({
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactiveCleaned()[[input$dataSet]][["sampleData"]]))
   })
   
   #Note to self: Filter datasets (p2) 
@@ -80,7 +86,7 @@ degpServer <- function(id, srcContentReactive) {
   
   observeEvent(input$clearGroups, {
     state$fgseaStats$geneRanking <- NULL
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactiveCleaned()[[input$dataSet]][["sampleData"]]))
     
     updateSelectizeInput(session, "selectIn1", selected = "")
     updateSelectizeInput(session, "selectIn2", selected = "")
@@ -175,7 +181,7 @@ degpServer <- function(id, srcContentReactive) {
       if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
-        rnaSeqData <- srcContentReactive()[[input$dataSet]][["molPharmData"]][["xsq"]]
+        rnaSeqData <- srcContentReactiveCleaned()[[input$dataSet]][["molPharmData"]][["xsq"]]
         controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
         testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]
         rnaSeqData1 <- rnaSeqData[, controlCellLines, drop = FALSE]
