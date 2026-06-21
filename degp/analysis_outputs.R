@@ -1,7 +1,7 @@
 renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeqData2, fgseaResults) {
   # Render in results table
   output$resultsTable <- DT::renderDT({
-    datatable(degResults, 
+    resultsTable <- datatable(degResults, 
               options = list(
                 search = list(regex = TRUE),
                 columnDefs = list(
@@ -13,6 +13,10 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
                                    "<br><small>Search table by regular expressions</small>"))
               
     )
+    
+    resultsTable <- DT::formatRound(resultsTable, columns = c("logFC", "AveExpr", "t", "B"), digits = 2)
+    resultsTable <- DT::formatSignif(resultsTable, columns = c("P.Value", "adj.P.Val"), digits = 3)
+    resultsTable
   })
   
   
@@ -113,7 +117,9 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
               filter = 'top',
               caption = paste("Pathway Analysis Results: ", input$selectIn1, " vs ", input$selectIn2))
    
-   formatRound(pathwayTable, columns = c("pval", "padj", "ES", "NES"), digits = 2)
+   pathwayTable <- DT::formatSignif(pathwayTable, columns = c("pval", "padj"), digits = 3)
+   pathwayTable <- DT::formatRound(pathwayTable, columns = c("ES", "NES"), digits = 2)
+   pathwayTable
    
   })
 
