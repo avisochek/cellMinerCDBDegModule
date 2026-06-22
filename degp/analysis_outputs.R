@@ -9,8 +9,12 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                 )
               ),
               filter = 'top',
-              caption = HTML(paste("Differential Expression Analysis: ", input$selectIn1, " vs ", input$selectIn2,
-                                   "<br><small>Search table by regular expressions</small>"))
+              caption = HTML(paste0(
+                "<div style='font-size: 24px; line-height: 1.35;'>",
+                "Differential Expression Analysis: ", input$selectIn1, " vs ", input$selectIn2,
+                "<br><small style='font-size: 13px;'>Search table by regular expressions</small>",
+                "</div>"
+              ))
               
     )
     

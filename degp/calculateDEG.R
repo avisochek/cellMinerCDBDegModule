@@ -95,5 +95,9 @@ calculateLimmaContrast <- function(limmaFit, controlGroup, testGroup) {
     check.names = FALSE
   )
   
+  if (require(geneSetPathwayAnalysis)){
+    results$Annotation <- geneSetPathwayAnalysis::geneAnnotTab[match(results$Gene,rownames(geneSetPathwayAnalysis::geneAnnotTab)), "SHORT_ANNOT"]
+    results$Annotation[is.na(results$Annotation)] <- ""
+  }
   results
 }

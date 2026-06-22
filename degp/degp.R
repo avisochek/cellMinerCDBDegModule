@@ -50,7 +50,7 @@ degpServer <- function(id, srcContentReactive) {
   dataSetTable_proxy <- DT::dataTableProxy('dataSetTable')
   
   #Cell line selection and group creation 
-  observeEvent(input$createGroup, {
+  observeEvent(input$addGroup, {
     selectedRows <- input$dataSetTable_rows_selected
     groupName <- stringr::str_trim(input$groupName)
     
@@ -60,7 +60,7 @@ degpServer <- function(id, srcContentReactive) {
       sampleTable <- state$sampleData()
       # Maximum of 3 allowed groups
       if(length(unique(na.omit(sampleTable$Group))) > 2) {
-        shiny::showNotification("You may create a maximum of 3 groups. Please delete an existing group before creating another group", type = "error")
+        shiny::showNotification("You may add a maximum of 3 groups. Please delete an existing group before creating another group", type = "error")
         return()
       }
 
@@ -83,7 +83,7 @@ degpServer <- function(id, srcContentReactive) {
       updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
     }
     else {
-      shiny::showNotification("Please select at least 3 cell lines to create a group", type = "error")
+      shiny::showNotification("Please select at least 3 cell lines to add a group. If you used the tissue selector, you may need to add additional tissue groups or choose a tissue group that has more cell lines.", type = "error")
     }
     
   })
