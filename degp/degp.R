@@ -242,7 +242,7 @@ degpServer <- function(id, srcContentReactive) {
         
         #Calculate FGSEA ranking metric as fold change over (p-value + 1)
         geneRanking <- degResults$logFC / ((degResults$P.Value) + 1)
-        names(geneRanking) <- sub("^xsq|exp", "", rownames(degResults))
+        names(geneRanking) <- sub("^(xsq|exp)", "", rownames(degResults))
         
         state$fgseaStats$geneRanking <- sort(geneRanking, decreasing = TRUE)
         #Perform FGSEA analysis

@@ -89,7 +89,11 @@ calculateLimmaContrast <- function(limmaFit, controlGroup, testGroup) {
   fit2 <- limma::contrasts.fit(limmaFit$fit, contrast)
   fit2 <- limma::eBayes(fit2, trend = TRUE)
   top <- limma::topTable(fit2, number = Inf, sort.by = "none")
-  results <- top
+  results <- data.frame(
+    Gene = sub("^(xsq|exp)", "", rownames(top)),
+    top,
+    check.names = FALSE
+  )
   
   results
 }
