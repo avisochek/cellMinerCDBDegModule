@@ -19,7 +19,7 @@ library(dplyr)
 ### --------------------------------------------------------------------------------------------------
 ### LOAD CONFIGURATION AND REQUIRED DATA SOURCE PACKAGES.
 ### --------------------------------------------------------------------------------------------------
-config <- jsonlite::fromJSON("degp/config.json")
+config <- jsonlite::fromJSON("config.json")
 
 hasExpressionData <- function(dataSourceConfig) {
   packages <- dataSourceConfig[["packages"]]
