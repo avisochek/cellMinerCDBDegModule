@@ -21,6 +21,24 @@ library(dplyr)
 ### --------------------------------------------------------------------------------------------------
 config <- jsonlite::fromJSON("degp/config.json")
 
+hasExpressionData <- function(dataSourceConfig) {
+  packages <- dataSourceConfig[["packages"]]
+  if (is.null(packages)) {
+    return(FALSE)
+  }
+
+  any(vapply(packages, function(packageConfig) {
+    molData <- packageConfig[["MolData"]]
+    if (is.null(molData) || is.null(molData[["eSetListName"]])) {
+      return(FALSE)
+    }
+
+    any(molData[["eSetListName"]] %in% c("xsq", "exp"), na.rm = TRUE)
+  }, logical(1)))
+}
+
+config <- Filter(hasExpressionData, config)
+
 source("degp/calculateDEG.R", local = TRUE)
 source("degp/combineGeneSets.R", local = TRUE)
 
@@ -43,6 +61,8 @@ for(y in 1:length(dataSourceChoices)){
 # Define gene sets for pathway analysis 
 hallmarkGeneSets <- gmtPathways("degp/h.all.v2023.2.Hs.symbols.gmt")
 dtbGeneSets <- gmtPathways("degp/220411.Genelist.gmt")
+reactomeGeneSets <- gmtPathways("degp/c2.cp.v2026.1.Hs.symbols.gmt")
 
 # Combine the gene sets
 combinedGeneSets <- combineGeneSets(hallmarkGeneSets, dtbGeneSets)
+combinedGeneSets <- combineGeneSets(combinedGeneSets, reactomeGeneSets)

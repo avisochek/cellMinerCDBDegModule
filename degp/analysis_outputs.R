@@ -1,4 +1,4 @@
-renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeqData2, fgseaResults) {
+renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
   # Render in results table
   output$resultsTable <- DT::renderDT({
     resultsTable <- datatable(degResults, 
@@ -77,18 +77,18 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
     #geneNames <- topGenes$Gene
     
     
-    rnaSeqData1 <- data.frame(rnaSeqData1, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
-    rnaSeqData2 <- data.frame(rnaSeqData2, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
+    exprData1 <- data.frame(exprData1, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
+    exprData2 <- data.frame(exprData2, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
     
-    # print(dim(rnaSeqData1))
-    # print(dim(rnaSeqData2))
+    # print(dim(exprData1))
+    # print(dim(exprData2))
     
     
-    expressionData <- cbind(rnaSeqData1, rnaSeqData2)
+    expressionData <- cbind(exprData1, exprData2)
     # print(dim(expressionData))
     
-    # colnames(expressionData) <- c(paste(colnames(rnaSeqData1), "Group1", sep="_"),
-    #                                       paste(colnames(rnaSeqData2), "Group2", sep="_"))
+    # colnames(expressionData) <- c(paste(colnames(exprData1), "Group1", sep="_"),
+    #                                       paste(colnames(exprData2), "Group2", sep="_"))
     
     expressionData <- expressionData[geneNames, , drop = FALSE]
     #Remove 'xsq' prefix from gene names
@@ -129,37 +129,9 @@ renderAnalysisOutputs <- function(input, output, degResults, rnaSeqData1, rnaSeq
    
   })
 
-  output$pathwayAnalysisDotPlot <- renderPlot({
-    pathwayPlotData <- as.data.frame(fgseaResults) %>%
-      filter(startsWith(pathway, "HALLMARK_"), !is.na(padj)) %>%
-      mutate(
-        .sign = if_else(NES >= 0, "activated", "suppressed"),
-        leadingEdgeCount = lengths(leadingEdge)
-      )
-
-    shiny::validate(
-      shiny::need(nrow(pathwayPlotData) > 0, "No Hallmark FGSEA pathways available.")
-    )
-
-    nesLimit <- max(abs(pathwayPlotData$NES), na.rm = TRUE)
-
-    ggplot(pathwayPlotData, aes(x = NES, y = reorder(pathway, NES), color = .sign, size = leadingEdgeCount)) +
-      geom_point() +
-      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-      scale_x_continuous(limits = c(-nesLimit, nesLimit)) +
-      scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
-      scale_size_continuous(name = "Leading edge") +
-      labs(
-        title = paste(input$selectIn1, "vs", input$selectIn2),
-        x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
-        y = NULL
-      ) +
-      theme_classic()
-  })
-
   output$pathwayAnalysisTopDotPlot <- renderPlot({
     pathwayPlotData <- as.data.frame(fgseaResults) %>%
-      filter(startsWith(pathway, "HALLMARK_"), !is.na(padj)) %>%
+      filter(!is.na(padj)) %>%
       mutate(
         .sign = if_else(NES >= 0, "activated", "suppressed"),
         leadingEdgeCount = lengths(leadingEdge)

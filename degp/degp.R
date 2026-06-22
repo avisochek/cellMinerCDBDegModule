@@ -23,15 +23,9 @@ degpServer <- function(id, srcContentReactive) {
     fgseaStats = reactiveValues(geneRanking = NULL)
   )
 
-## Prepare Input For DEG Analysis,
-## Remove datasets that do not have RNAseq data
-  srcContentReactiveCleaned <- reactive({
-    Filter(function(x) !is.null(x$molPharmData$xsq), srcContentReactive())
-  })
-
   #Initialize data with Group column 
   observe({
-    state$sampleData(initializeSampleData(srcContentReactiveCleaned()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
   })
   
   #Note to self: Filter datasets (p2) 
@@ -86,7 +80,7 @@ degpServer <- function(id, srcContentReactive) {
   
   observeEvent(input$clearGroups, {
     state$fgseaStats$geneRanking <- NULL
-    state$sampleData(initializeSampleData(srcContentReactiveCleaned()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
     
     updateSelectizeInput(session, "selectIn1", selected = "")
     updateSelectizeInput(session, "selectIn2", selected = "")
@@ -186,17 +180,18 @@ degpServer <- function(id, srcContentReactive) {
       if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
-        rnaSeqData <- srcContentReactiveCleaned()[[input$dataSet]][["molPharmData"]][["xsq"]]
+        molPharmData <- srcContentReactive()[[input$dataSet]][["molPharmData"]]
+        exprData <- if (!is.null(molPharmData$xsq)) molPharmData$xsq else molPharmData$exp
         controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
         testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]
-        rnaSeqData1 <- rnaSeqData[, controlCellLines, drop = FALSE]
-        rnaSeqData2 <- rnaSeqData[, testCellLines, drop = FALSE]
+        exprData1 <- exprData[, controlCellLines, drop = FALSE]
+        exprData2 <- exprData[, testCellLines, drop = FALSE]
         
         #Increment progress 
         incProgress(0.1, detail = "Calculating differential expression...")
         
         #Calculate differential expression
-        degResults <- calculateDEG(rnaSeqData1, rnaSeqData2)
+        degResults <- calculateDEG(exprData1, exprData2)
         # Order by p_value, then fold change
         degResults <- degResults[with(degResults, order(P.Value, -logFC)), ]
         
@@ -223,7 +218,7 @@ degpServer <- function(id, srcContentReactive) {
         
         #Calculate FGSEA ranking metric as fold change over (p-value + 1)
         geneRanking <- degResults$logFC / ((degResults$P.Value) + 1)
-        names(geneRanking) <- sub("^xsq", "", rownames(degResults))
+        names(geneRanking) <- sub("^xsq|exp", "", rownames(degResults))
         
         state$fgseaStats$geneRanking <- sort(geneRanking, decreasing = TRUE)
         #Perform FGSEA analysis
@@ -234,7 +229,7 @@ degpServer <- function(id, srcContentReactive) {
         fgseaResults <- fgseaResults[with(fgseaResults, order(-NES)), ]
         fgseaResults <- fgseaResults[, c("pathway", "pval", "padj", "ES", "NES", "leadingEdge")] # add leading edge, add datatable scroll
         
-        renderAnalysisOutputs(input, output, degResults, rnaSeqData1, rnaSeqData2, fgseaResults)
+        renderAnalysisOutputs(input, output, degResults, exprData1, exprData2, fgseaResults)
         
         incProgress(0.2, detail = "Finalizing analysis...")
       }
@@ -271,7 +266,6 @@ degpServer <- function(id, srcContentReactive) {
     output$resultsTable <- DT::renderDT({datatable(data.frame())})  
     output$volcanoPlot <- renderPlot({NULL})  
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
-    output$pathwayAnalysisDotPlot <- renderPlot({NULL}) 
     output$pathwayAnalysisTopDotPlot <- renderPlot({NULL}) 
     
     #Clear data table 

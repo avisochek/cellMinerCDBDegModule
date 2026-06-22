@@ -72,8 +72,6 @@ degpUI <- function(id) {
                                       tabsetPanel(
                                         tabPanel("FGSEA Table",
                                                  DT::DTOutput(ns("pathwayAnalysisResults"))),
-                                        tabPanel("FGSEA Plot",
-                                                 plotOutput(ns("pathwayAnalysisDotPlot"), height = "1000px")),
                                         tabPanel("Top FGSEA Plot",
                                                  plotOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
                                       ))
