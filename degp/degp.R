@@ -19,12 +19,15 @@ degpServer <- function(id, srcContentReactive) {
   state <- list(
     #Reactive to store sample data with group assignments
     sampleData = reactiveVal(),
+    # Reactive to store limma fit
+    degFit = reactiveVal(NULL),
     # Reactive to store gene ranks for fgsea
     fgseaStats = reactiveValues(geneRanking = NULL)
   )
 
   #Initialize data with Group column 
   observe({
+    state$degFit(NULL)
     state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
   })
   
@@ -63,6 +66,7 @@ degpServer <- function(id, srcContentReactive) {
 
       sampleTable$Group[selectedRows] <- groupName
       state$sampleData(sampleTable)
+      state$degFit(NULL)
       
       groupCount <- sum(sampleTable$Group == groupName, na.rm = TRUE)
       
@@ -89,6 +93,7 @@ degpServer <- function(id, srcContentReactive) {
     sampleTable <- state$sampleData()
     sampleTable$Group[sampleTable$Group == groupName] <- NA
     state$sampleData(sampleTable)
+    state$degFit(NULL)
     shiny::showNotification(paste("Group", groupName, "deleted"))
   })
   
@@ -203,7 +208,14 @@ degpServer <- function(id, srcContentReactive) {
         incProgress(0.1, detail = "Calculating differential expression...")
         
         #Calculate differential expression
-        degResults <- calculateDEG(exprData1, exprData2)
+        if (is.null(state$degFit())) {
+          groupedRows <- !is.na(sampleTable$Group)
+          state$degFit(calculateLimmaFit(
+            exprData[, sampleTable$Name[groupedRows], drop = FALSE],
+            sampleTable$Group[groupedRows]
+          ))
+        }
+        degResults <- calculateLimmaContrast(state$degFit(), input$selectIn1, input$selectIn2)
         # Order by p_value, then fold change
         degResults <- degResults[with(degResults, order(P.Value, -logFC)), ]
         
@@ -256,6 +268,7 @@ degpServer <- function(id, srcContentReactive) {
   # Reset selections
   observeEvent(input$reset, {
     #Reset expression data
+    state$degFit(NULL)
     state$fgseaStats$geneRanking <- NULL
     
     # #Reset sample data to its initial state without selections
