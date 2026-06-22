@@ -32,7 +32,6 @@ degpUI <- function(id) {
                  uiOutput(ns("tissueSelector")),
                  textInput(ns("groupName"), "Group Name", value = ""),
                  actionButton(inputId = ns("createGroup"), label = "Create Group"),
-                 actionButton(inputId = ns("clearGroups"), label = "Clear Groups"),
                  br(),
                  br(),
                  uiOutput(ns("groupInfoDisplay")),

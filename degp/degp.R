@@ -49,12 +49,18 @@ degpServer <- function(id, srcContentReactive) {
   #Cell line selection and group creation 
   observeEvent(input$createGroup, {
     selectedRows <- input$dataSetTable_rows_selected
-    groupName <- input$groupName
+    groupName <- stringr::str_trim(input$groupName)
     
     if(length(selectedRows) > 2 && groupName != ""){
       
       #Update Group column 
       sampleTable <- state$sampleData()
+      # Maximum of 3 allowed groups
+      if(length(unique(na.omit(sampleTable$Group))) > 2) {
+        shiny::showNotification("You may create a maximum of 3 groups. Please delete an existing group before creating another group", type = "error")
+        return()
+      }
+
       sampleTable$Group[selectedRows] <- groupName
       state$sampleData(sampleTable)
       
@@ -78,27 +84,33 @@ degpServer <- function(id, srcContentReactive) {
     
   })
   
-  observeEvent(input$clearGroups, {
-    state$fgseaStats$geneRanking <- NULL
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
-    
-    updateSelectizeInput(session, "selectIn1", selected = "")
-    updateSelectizeInput(session, "selectIn2", selected = "")
-    updateTextInput(session, "groupName", value = "")
-    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
-    
-    DT::selectRows(dataSetTable_proxy, NULL)
-    shiny::showNotification("Groups cleared")
+  observeEvent(input$deleteGroup, {
+    groupName <- input$deleteGroup
+    sampleTable <- state$sampleData()
+    sampleTable$Group[sampleTable$Group == groupName] <- NA
+    state$sampleData(sampleTable)
+    shiny::showNotification(paste("Group", groupName, "deleted"))
   })
   
   output$groupInfoDisplay <- renderUI({
     groupCounts <- table(na.omit(state$sampleData()$Group))
 
     if (length(groupCounts) > 0) {
-      do.call(fluidRow, lapply(names(groupCounts), function(gname) {
-        tagList(
-          column(6, strong(gname)),
-          column(6, paste(groupCounts[[gname]], "cell lines"))
+      do.call(tagList, lapply(names(groupCounts), function(gname) {
+        fluidRow(
+          column(5, strong(gname)),
+          column(5, paste(groupCounts[[gname]], "cell lines")),
+          column(2, tags$button(
+            type = "button",
+            class = "btn btn-link btn-xs",
+            title = paste("Delete", gname),
+            onclick = sprintf(
+              "Shiny.setInputValue('%s', %s, {priority: 'event'})",
+              session$ns("deleteGroup"),
+              jsonlite::toJSON(gname, auto_unbox = TRUE)
+            ),
+            "x"
+          ))
         )
       }))
     } else {
