@@ -32,21 +32,49 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     
     log_FC = degResults$logFC
     log_pval = -log10(degResults$adj.P.Val)
+    upregulatedLabel <- "Upregulated: Log2 FoldChange >= 1 & FDR < 0.05"
+    downregulatedLabel <- "Downregulated: Log2 FoldChange <= -1 & FDR < 0.05"
+    topGeneLabel <- "Top 10 upregulated / downregulated"
+    
     Significant=rep("Not Significant",length(log_FC))
-    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC>=2)]="Upregulated: Log2 FoldChange > 2 & FDR < 0.05"
-    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-2)]="Downregulated: Log2 FoldChange < -2 & FDR < 0.05"
+    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC>=1)]=upregulatedLabel
+    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-1)]=downregulatedLabel
     
     gene = sub("^xsq", "", rownames(degResults))
     volcano_data=data.frame(gene,log_FC,log_pval,Significant)
+    significantUpregulated <- volcano_data[volcano_data$Significant == upregulatedLabel, ]
+    significantDownregulated <- volcano_data[volcano_data$Significant == downregulatedLabel, ]
+    topUpregulatedGenes <- head(
+      significantUpregulated[order(-significantUpregulated$log_FC), "gene"],
+      10
+    )
+    topDownregulatedGenes <- head(
+      significantDownregulated[order(significantDownregulated$log_FC), "gene"],
+      10
+    )
+    volcano_data$TopGene <- ifelse(volcano_data$gene %in% c(topUpregulatedGenes, topDownregulatedGenes),
+                                   topGeneLabel,
+                                   NA)
+    topGeneData <- volcano_data[!is.na(volcano_data$TopGene), ]
+    pointSize <- 1.5
     
     volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant, text = gene)) +
-      geom_point() +
+      geom_point(size = pointSize) +
+      geom_point(
+        data = topGeneData,
+        aes(color = TopGene),
+        shape = 1,
+        fill = NA,
+        size = pointSize,
+        stroke = 0.5
+      ) +
       geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
-      geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "black") +
+      geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
       scale_color_manual(values = c(
-        "Upregulated: Log2 FoldChange > 2 & FDR < 0.05" = "red",
-        "Downregulated: Log2 FoldChange < -2 & FDR < 0.05" = "blue",
-        "Not Significant" = "grey"
+        "Upregulated: Log2 FoldChange >= 1 & FDR < 0.05" = "red",
+        "Downregulated: Log2 FoldChange <= -1 & FDR < 0.05" = "blue",
+        "Not Significant" = "grey",
+        "Top 10 upregulated / downregulated" = "gold"
       )) +
       labs(
         title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
