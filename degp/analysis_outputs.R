@@ -45,11 +45,11 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     significantUpregulated <- volcano_data[volcano_data$Significant == upregulatedLabel, ]
     significantDownregulated <- volcano_data[volcano_data$Significant == downregulatedLabel, ]
     topUpregulatedGenes <- head(
-      significantUpregulated[order(-significantUpregulated$log_FC), "gene"],
+      significantUpregulated[order(-significantUpregulated$log_FC, -significantUpregulated$log_pval), "gene"],
       10
     )
     topDownregulatedGenes <- head(
-      significantDownregulated[order(significantDownregulated$log_FC), "gene"],
+      significantDownregulated[order(significantDownregulated$log_FC, -significantDownregulated$log_pval), "gene"],
       10
     )
     volcano_data$TopGene <- ifelse(volcano_data$gene %in% c(topUpregulatedGenes, topDownregulatedGenes),

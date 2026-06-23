@@ -216,8 +216,8 @@ degpServer <- function(id, srcContentReactive) {
           ))
         }
         degResults <- calculateLimmaContrast(state$degFit(), input$selectIn1, input$selectIn2)
-        # Order by p_value, then fold change
-        degResults <- degResults[with(degResults, order(P.Value, -logFC)), ]
+        # Order by fold change, then p-value
+        degResults <- degResults[with(degResults, order(-logFC, P.Value)), ]
         
         # #Increment progress
         incProgress(0.2, detail = "Rendering results...")
