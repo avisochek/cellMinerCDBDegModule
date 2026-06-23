@@ -265,8 +265,8 @@ degpServer <- function(id, srcContentReactive) {
     
   })
   
-  # Reset selections
-  observeEvent(input$reset, {
+  # New selection
+  observeEvent(input$newSelection, {
     #Reset expression data
     state$degFit(NULL)
     state$fgseaStats$geneRanking <- NULL

@@ -13,6 +13,18 @@ degpUI <- function(id) {
         width: auto !important;
         padding: 10px !important;
       }
+      .sidebar-step-heading {
+        display: block;
+        font-size: 22px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin: 0 0 10px;
+      }
+      .sidebar-helper-text {
+        font-size: 14px;
+        line-height: 1.35;
+        margin: 0 0 6px;
+      }
     "))
   ),
   tabsetPanel(
@@ -21,25 +33,30 @@ degpUI <- function(id) {
                #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
                sidebarPanel(
                  HTML(
-                   paste0("<label class='dataset' for='", ns("dataSet"), "'>Select Dataset</label>",
+                   paste0("<label class='sidebar-step-heading' for='", ns("dataSet"), "'>1. Select Dataset</label>",
                           "<select id='", ns("dataSet"), "'>", options, "</select>")
                  ),
                  br(),
-                 h2("Select Groups for DEG and Pathway Analysis:"),
-                 h4("Either select cell lines from the table, or choose 1 or more tissue types from the 'Select Tissue' selector."),
-                 h4("When you are done, click 'Add Group'."),
                  br(),
-                 uiOutput(ns("tissueSelector")),
+                 tags$div(class = "sidebar-step-heading", "2. Select Groups"),
+                 tags$p(class = "sidebar-helper-text", "Type a name for the group."),
+                 tags$p(class = "sidebar-helper-text", "Either select cell lines from the table, or choose 1 or more tissue types from the tissue selector."),
+                 tags$p(class = "sidebar-helper-text", "When you are done, click 'Add Group'."),
+                 br(),
                  textInput(ns("groupName"), "Group Name", value = ""),
+                 uiOutput(ns("tissueSelector")),
                  actionButton(inputId = ns("addGroup"), label = "Add Group"),
                  br(),
                  br(),
                  uiOutput(ns("groupInfoDisplay")),
                  br(),
+                 tags$div(class = "sidebar-step-heading", "3. Select Contrast"),
                  selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
                  selectizeInput(ns("selectIn2"), "Select Test Group:", choices = c("")),
-                 actionButton(ns("runAnalysis"), "Run Analysis"),
-                 actionButton(ns("reset"), "Reset")
+                 br(),
+                 tags$div(class = "sidebar-step-heading", "4. Run Analysis"),
+                 actionButton(ns("runAnalysis"), "Run"),
+                 actionButton(ns("newSelection"), "Change Selection")
                ),
                mainPanel(
                  tabsetPanel(id = ns("mainTabset"),
