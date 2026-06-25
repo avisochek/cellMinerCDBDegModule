@@ -56,6 +56,9 @@ combineGeneSets <- function(set1, set2) {
 hallmarkGeneSets <- gmtPathways("h.all.v2026.1.Hs.symbols.gmt")
 dtbGeneSets <- gmtPathways("220411.Genelist.gmt")
 reactomeGeneSets <- gmtPathways("c2.cp.reactome.v2026.1.Hs.symbols.gmt")
+reactomePathwayUrls <- vapply(jsonlite::fromJSON("c2.cp.reactome.v2026.1.Hs.json", simplifyVector = FALSE), function(pathway) {
+  pathway[["externalDetailsURL"]]
+}, character(1))
 
 # Combine the gene sets
 combinedGeneSets <- combineGeneSets(hallmarkGeneSets, dtbGeneSets)
@@ -635,14 +638,19 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   
   # Display FGSEA results
   output$pathwayAnalysisResults <- renderDT({
-   truncateFgseaCell <- function(value) {
+   truncateFgseaCell <- function(value, link = NA_character_) {
      value <- paste(value, collapse = ", ")
      label <- htmltools::htmlEscape(value)
+     if (!is.na(link) && nzchar(link)) {
+       label <- sprintf("<a href='%s' target='_blank'>%s</a>", htmltools::htmlEscape(link, attribute = TRUE), label)
+     }
      tooltip <- htmltools::htmlEscape(gsub("_", "_ ", value), attribute = TRUE)
      sprintf("<div style='max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' data-toggle='tooltip' data-title='%s'>%s</div>", tooltip, label)
    }
    
-   fgseaResults$pathway <- vapply(fgseaResults$pathway, truncateFgseaCell, character(1))
+   fgseaResults$pathway <- vapply(fgseaResults$pathway, function(pathway) {
+     truncateFgseaCell(pathway, unname(reactomePathwayUrls[pathway]))
+   }, character(1))
    fgseaResults$leadingEdge <- vapply(fgseaResults$leadingEdge, truncateFgseaCell, character(1))
    
    pathwayTable <- datatable(fgseaResults,
