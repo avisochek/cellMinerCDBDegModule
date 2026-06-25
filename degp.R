@@ -154,7 +154,7 @@ degpInput <- function(id) {
                                         tabPanel("FGSEA Table",
                                                  DT::DTOutput(ns("pathwayAnalysisResults"))),
                                         tabPanel("Top FGSEA Plot",
-                                                 plotOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
+                                                 plotlyOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
                                       ))
                  )
                )
@@ -480,7 +480,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     output$resultsTable <- DT::renderDT({datatable(data.frame())})  
     output$volcanoPlot <- renderPlot({NULL})  
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
-    output$pathwayAnalysisTopDotPlot <- renderPlot({NULL}) 
+    output$pathwayAnalysisTopDotPlot <- renderPlotly({NULL}) 
     
     #Clear data table 
     DT::selectRows(dataSetTable_proxy, NULL)
@@ -683,12 +683,18 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
    
   })
 
-  output$pathwayAnalysisTopDotPlot <- renderPlot({
+  output$pathwayAnalysisTopDotPlot <- renderPlotly({
     pathwayPlotData <- as.data.frame(fgseaResults) %>%
       filter(!is.na(padj)) %>%
       mutate(
         .sign = if_else(NES >= 0, "activated", "suppressed"),
-        leadingEdgeCount = lengths(leadingEdge)
+        leadingEdgeCount = lengths(leadingEdge),
+        .hoverText = paste0(
+          "Pathway: ", pathway,
+          "<br>NES: ", round(NES, 2),
+          "<br>Adjusted p-value: ", signif(padj, 3),
+          "<br>Leading edge genes: ", leadingEdgeCount
+        )
       )
 
     shiny::validate(
@@ -704,17 +710,27 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       filter(NES < 0) %>%
       slice_min(order_by = NES, n = 10, with_ties = FALSE) %>%
       mutate(.direction = "Top 10 downregulated")
-    topPathwayPlotData <- bind_rows(topDownregulated, topUpregulated)
+    topPathwayPlotData <- bind_rows(topDownregulated, topUpregulated) %>%
+      mutate(.direction = factor(.direction, levels = c("Top 10 downregulated", "Top 10 upregulated")))
 
     shiny::validate(
       shiny::need(nrow(topPathwayPlotData) > 0, "No upregulated or downregulated Hallmark FGSEA pathways available.")
     )
 
-    ggplot(topPathwayPlotData, aes(x = NES, y = reorder(pathway, NES), color = .sign, size = leadingEdgeCount)) +
+    pathwayPlot <- ggplot(topPathwayPlotData, aes(x = NES, y = reorder(pathway, -NES), color = .sign, size = leadingEdgeCount, text = .hoverText)) +
       geom_point() +
       geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-      facet_wrap(~ .direction, nrow = 1, scales = "free_y") +
+      facet_wrap(~ .direction, ncol = 1, scales = "free_y") +
       scale_x_continuous(limits = c(-nesLimit, nesLimit)) +
+      scale_y_discrete(
+        expand = expansion(add = 0.2),
+        labels = function(pathway) {
+          pathway %>%
+            str_remove("^(HALLMARK|REACTOME)_") %>%
+            str_replace_all("_", " ") %>%
+            str_trunc(width = 40)
+        }
+      ) +
       scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
       scale_size_continuous(name = "Leading edge") +
       labs(
@@ -722,7 +738,11 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
         y = NULL
       ) +
-      theme_classic()
+      theme_classic() +
+      theme(panel.spacing.y = grid::unit(0.25, "lines"))
+
+    ggplotly(pathwayPlot, tooltip = "text") %>%
+      layout(hoverlabel = list(align = "left"))
   })
 }
 
