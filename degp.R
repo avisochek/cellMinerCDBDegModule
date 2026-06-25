@@ -64,34 +64,32 @@ combinedGeneSets <- combineGeneSets(combinedGeneSets, reactomeGeneSets)
 ### User Interface --------------------------------------------------------------------------------------------------
 degpInput <- function(id) {
   ns <- NS(id)
-
+  tabPanel("Differential Expression Analysis",
   fluidPage(
   useShinyjs(),
-  tags$head(
-    tags$style(HTML("
-      .shiny-notification {
-        position: fixed !important;
-        top: 40% !important;
-        left: 50% !important;
-        width: auto !important;
-        padding: 10px !important;
-      }
-      .sidebar-step-heading {
-        display: block;
-        font-size: 22px;
-        font-weight: 600;
-        line-height: 1.25;
-        margin: 0 0 10px;
-      }
-      .sidebar-helper-text {
-        font-size: 14px;
-        line-height: 1.35;
-        margin: 0 0 6px;
-      }
-    "))
-  ),
-  tabsetPanel(
-    tabPanel("Differential Expression Analysis",
+    tags$head(
+      tags$style(HTML("
+        .shiny-notification {
+          position: fixed !important;
+          top: 40% !important;
+          left: 50% !important;
+          width: auto !important;
+          padding: 10px !important;
+        }
+        .sidebar-step-heading {
+          display: block;
+          font-size: 22px;
+          font-weight: 600;
+          line-height: 1.25;
+          margin: 0 0 10px;
+        }
+        .sidebar-helper-text {
+          font-size: 14px;
+          line-height: 1.35;
+          margin: 0 0 6px;
+        }
+      "))
+    ),
              sidebarLayout(
                #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
                sidebarPanel(
@@ -160,12 +158,10 @@ degpInput <- function(id) {
              )
     )
   )
-  )
 }
 
 ### Server --------------------------------------------------------------------------------------------------
-degpServer <- function(id, srcContentReactive, config) {
-  moduleServer(id, function(input, output, session) {
+degpServer <- function(input, output, session, srcContentReactive, config){
   
   hideTab("mainTabset", "Results")
   hideTab("mainTabset", "Heatmap")
@@ -490,7 +486,6 @@ degpServer <- function(id, srcContentReactive, config) {
   
   
   
-  })
 }
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
 renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
