@@ -635,7 +635,32 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   
   # Display FGSEA results
   output$pathwayAnalysisResults <- renderDT({
+   truncateFgseaCell <- function(value) {
+     value <- paste(value, collapse = ", ")
+     label <- htmltools::htmlEscape(value)
+     tooltip <- htmltools::htmlEscape(gsub("_", "_ ", value), attribute = TRUE)
+     sprintf("<div style='max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' data-toggle='tooltip' data-title='%s'>%s</div>", tooltip, label)
+   }
+   
+   fgseaResults$pathway <- vapply(fgseaResults$pathway, truncateFgseaCell, character(1))
+   fgseaResults$leadingEdge <- vapply(fgseaResults$leadingEdge, truncateFgseaCell, character(1))
+   
    pathwayTable <- datatable(fgseaResults,
+              escape = FALSE,
+              callback = DT::JS("
+                var activateFgseaTooltips = function() {
+                  $(table.table().container()).find('[data-toggle=\"tooltip\"]').tooltip({
+                    title: function() {
+                      return $(this).attr('data-title');
+                    },
+                    container: 'body',
+                    placement: 'top'
+                  });
+                };
+                activateFgseaTooltips();
+                table.on('draw.dt', activateFgseaTooltips);
+                return table;
+              "),
               options = list(
                 columnDefs = list(
                   list(targets = c(0,1,2,3,4), visible = TRUE)
