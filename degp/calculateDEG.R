@@ -51,10 +51,7 @@ calculateWilcoxonDEG <- function(rnaSeqData1, rnaSeqData2) {
 }
 
 calculateLimmaFit <- function(expressionData, group) {
-  validCellLines <- colSums(is.na(expressionData)) != nrow(expressionData)
-
-  expressionData <- expressionData[, validCellLines]
-  group <- factor(group[validCellLines], levels = unique(group[validCellLines]))
+  group <- factor(group, levels = unique(group))
   design <- model.matrix(~ 0 + group)
   colnames(design) <- LETTERS[seq_len(nlevels(group))]
 

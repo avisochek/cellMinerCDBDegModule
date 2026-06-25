@@ -3,7 +3,7 @@ source("degp/ui.R", local = TRUE)
 source("degp/analysis_outputs.R", local = TRUE)
 
 ### Server --------------------------------------------------------------------------------------------------
-degpServer <- function(id, srcContentReactive) {
+degpServer <- function(id, srcContentReactive, config) {
   moduleServer(id, function(input, output, session) {
   
   hideTab("mainTabset", "Results")
@@ -15,6 +15,35 @@ degpServer <- function(id, srcContentReactive) {
     sampleTable$Group <- NA
     sampleTable
   }
+
+  filteredSrcContent <- reactiveVal(NULL)
+
+  observeEvent(srcContentReactive(), {
+    expressionConfig <- Filter(hasExpressionData, config)
+    srcContent <- srcContentReactive()[names(expressionConfig)]
+
+    srcContent <- lapply(srcContent, function(dataSource) {
+      dataSource <- filterAllNAExpressionColumns(dataSource)
+      molPharmData <- dataSource[["molPharmData"]]
+      exprData <- if (!is.null(molPharmData$xsq)) molPharmData$xsq else molPharmData$exp
+      dataSource[["sampleData"]] <- dataSource[["sampleData"]][dataSource[["sampleData"]]$Name %in% colnames(exprData), , drop = FALSE]
+      dataSource
+    })
+
+    filteredSrcContent(srcContent)
+    dataSourceChoices <- setNames(
+      names(srcContent),
+      vapply(expressionConfig[names(srcContent)], function(x) { x[["displayName"]] }, character(1))
+    )
+    selectedDataSourceName <- if ("nci60" %in% dataSourceChoices) "nci60" else dataSourceChoices[[1]]
+    updateSelectInput(session, "dataSet", choices = dataSourceChoices, selected = selectedDataSourceName)
+  }, once = TRUE)
+
+  selectedDataSource <- reactive({
+    srcContent <- req(filteredSrcContent())
+    req(input$dataSet)
+    srcContent[[input$dataSet]]
+  })
 
   state <- list(
     #Reactive to store sample data with group assignments
@@ -28,16 +57,16 @@ degpServer <- function(id, srcContentReactive) {
   #Initialize data with Group column 
   observe({
     state$degFit(NULL)
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
   })
   
-  #Note to self: Filter datasets (p2) 
   output$dataSetTable <- DT::renderDT({
-    datatable(state$sampleData(),
+    sampleData <- req(state$sampleData())
+    datatable(sampleData,
               #Column selection below to restrict to cell line, tissue type information (source + OncoTree), and Group.
               options = list(
                 columnDefs=list(
-                  list(visible = FALSE, targets = c(0,5,6,7:(ncol(state$sampleData())-1)))
+                  list(visible = FALSE, targets = c(0,5,6,7:(ncol(sampleData)-1)))
                 )
               ),
               filter = 'top',
@@ -125,7 +154,7 @@ degpServer <- function(id, srcContentReactive) {
   
   # Search by tissue type
   tissueSelectionOptions <- reactive({
-    data <- state$sampleData()
+    data <- req(state$sampleData())
     #choices <- unique(data$OncoTree1)
     uniqueTissues <- unique(paste(data$OncoTree1, data$OncoTree2, sep = ": "))
     uniqueOncoTree1 <- unique(data$OncoTree1)
@@ -197,7 +226,7 @@ degpServer <- function(id, srcContentReactive) {
       if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
-        molPharmData <- srcContentReactive()[[input$dataSet]][["molPharmData"]]
+        molPharmData <- selectedDataSource()[["molPharmData"]]
         exprData <- if (!is.null(molPharmData$xsq)) molPharmData$xsq else molPharmData$exp
         controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
         testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]

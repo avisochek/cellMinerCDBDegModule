@@ -16,11 +16,6 @@ library(ComplexHeatmap)
 library(heatmaply)
 library(dplyr)
 
-### --------------------------------------------------------------------------------------------------
-### LOAD CONFIGURATION AND REQUIRED DATA SOURCE PACKAGES.
-### --------------------------------------------------------------------------------------------------
-config <- jsonlite::fromJSON("config.json")
-
 hasExpressionData <- function(dataSourceConfig) {
   packages <- dataSourceConfig[["packages"]]
   if (is.null(packages)) {
@@ -37,27 +32,19 @@ hasExpressionData <- function(dataSourceConfig) {
   }, logical(1)))
 }
 
-config <- Filter(hasExpressionData, config)
+filterAllNAExpressionColumns <- function(dataSourceContent) {
+  for (assayName in c("xsq", "exp")) {
+    expressionData <- dataSourceContent[["molPharmData"]][[assayName]]
+    if (!is.null(expressionData)) {
+      keepColumns <- colSums(is.na(expressionData)) != nrow(expressionData)
+      dataSourceContent[["molPharmData"]][[assayName]] <- expressionData[, keepColumns, drop = FALSE]
+    }
+  }
+  dataSourceContent
+}
 
 source("degp/calculateDEG.R", local = TRUE)
 source("degp/combineGeneSets.R", local = TRUE)
-
-dataSourceChoices <- setNames(names(config),
-                              vapply(config, function(x) { x[["displayName"]] },
-                                     character(1)))
-options = "";
-
-for(y in 1:length(dataSourceChoices)){
-
-  if (dataSourceChoices[y]=="nci60")
-  {
-    options =  paste0(options,"<option value=",dataSourceChoices[y]," selected>",names(dataSourceChoices)[y],"</option>;")
-  }
-  else
-  {
-    options =  paste0(options,"<option value=",dataSourceChoices[y],">",names(dataSourceChoices)[y],"</option>;");
-  }
-}
 # Define gene sets for pathway analysis 
 hallmarkGeneSets <- gmtPathways("degp/h.all.v2026.1.Hs.symbols.gmt")
 dtbGeneSets <- gmtPathways("degp/220411.Genelist.gmt")

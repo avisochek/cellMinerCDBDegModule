@@ -2,6 +2,7 @@
 
 degpUI <- function(id) {
   ns <- NS(id)
+
   fluidPage(
   useShinyjs(),
   tags$head(
@@ -32,9 +33,10 @@ degpUI <- function(id) {
              sidebarLayout(
                #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
                sidebarPanel(
-                 HTML(
-                   paste0("<label class='sidebar-step-heading' for='", ns("dataSet"), "'>1. Select Dataset</label>",
-                          "<select id='", ns("dataSet"), "'>", options, "</select>")
+                 selectInput(
+                   ns("dataSet"),
+                   label = tags$span(class = "sidebar-step-heading", "1. Select Dataset"),
+                   choices = character(0)
                  ),
                  br(),
                  br(),
