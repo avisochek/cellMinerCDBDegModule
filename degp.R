@@ -547,6 +547,8 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                                    NA)
     topGeneData <- volcano_data[!is.na(volcano_data$TopGene), ]
     pointSize <- 1.5
+    xAxisMax <- max(2, abs(log_FC), na.rm = TRUE)
+    yAxisMax <- max(2, log_pval, na.rm = TRUE)
     
     volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant, text = gene)) +
       geom_point(size = pointSize) +
@@ -572,12 +574,10 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         y = "-Log10 FDR"
       ) +
       scale_x_continuous(
-        limits = c(-5, 5),
-        breaks = seq(-5, 5, by = 0.5)
+        limits = c(-xAxisMax, xAxisMax)
       ) +
       scale_y_continuous(
-        limits = c(0, 10),
-        breaks = seq(0, 10, by = 0.5)
+        limits = c(0, yAxisMax)
       ) +
       theme_classic()
   
