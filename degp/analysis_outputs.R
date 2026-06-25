@@ -101,10 +101,9 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   ## Heatmap
   output$heatmapPlot <- renderPlotly({
     
-    topUpregulated <- head(degResults[order(degResults$P.Value, -degResults$logFC), ], 10)
-    topDownregulated <- head(degResults[order(degResults$P.Value, degResults$logFC), ], 10)
+    topUpregulated <- head(degResults[order(-degResults$logFC, degResults$P.Value), ], 10)
+    topDownregulated <- head(degResults[order(degResults$logFC, degResults$P.Value), ], 10)
     
-    topGenes <- rbind(topDownregulated, topUpregulated)
     geneNames <- c(rownames(topDownregulated), rownames(topUpregulated))
     #geneNames <- topGenes$Gene
     
