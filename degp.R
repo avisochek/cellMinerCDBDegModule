@@ -138,7 +138,7 @@ degpInput <- function(id) {
                              tabPanel("Volcano Plot",
                                       plotlyOutput(ns("volcanoPlot"))),
                              tabPanel("Heatmap",
-                                      plotlyOutput(ns("heatmapPlot"))),
+                                      plotlyOutput(ns("heatmapPlot"), height = "600px")),
                              tabPanel("Pathway Analysis",
                                       # fluidRow(
                                       #   column(12,
@@ -504,7 +504,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
               filter = 'top',
               caption = HTML(paste0(
                 "<div style='font-size: 24px; line-height: 1.35;'>",
-                "Differential Expression Analysis: ", input$selectIn1, " vs ", input$selectIn2,
+                "Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1,
                 "<br><small style='font-size: 13px;'>Search table by regular expressions</small>",
                 "</div>"
               ))
@@ -572,7 +572,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         "Top 10 upregulated / downregulated" = "gold"
       )) +
       labs(
-        title = paste0('Volcano plot for: ', input$selectIn1, " vs ", input$selectIn2),
+        title = paste0('Volcano plot for: ', input$selectIn2, " vs ", input$selectIn1),
         x = "Log2 Fold Change",
         y = "-Log10 FDR"
       ) +
@@ -584,7 +584,8 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       ) +
       theme_classic()
   
-    volcano_plot <- ggplotly(volcano_plot, tooltip = "text")
+    volcano_plot <- ggplotly(volcano_plot, tooltip = "text") %>%
+      layout(margin = list(t = 80))
     
     volcano_plot
     
@@ -619,7 +620,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     rownames(expressionData) <- gsub("^xsq", "", rownames(expressionData))
     
     heatmaply(expressionData, 
-              main = paste0("Heatmap of top 10 upregulated genes and bottom 10 downregulated genes in ", input$selectIn1, " vs ", input$selectIn2),
+              main = paste0("Heatmap of top 10 upregulated genes and bottom 10 downregulated genes in ", input$selectIn2, " vs ", input$selectIn1),
               xlab = "Cell Lines", 
               ylab = "Genes", 
               colors = colorRampPalette(c("navy", "white", "firebrick"))(255),
@@ -630,7 +631,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
               scale = "row",
               # grid_gap = 1,
               fontsize_col = 5,
-              fontsize_row = 5
+              fontsize_row = 10
               )
     
   })
@@ -675,7 +676,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                 )
               ),
               filter = 'top',
-              caption = paste("Pathway Analysis Results: ", input$selectIn1, " vs ", input$selectIn2))
+              caption = paste("Pathway Analysis Results: ", input$selectIn2, " vs ", input$selectIn1))
    
    pathwayTable <- DT::formatSignif(pathwayTable, columns = c("pval", "padj"), digits = 3)
    pathwayTable <- DT::formatRound(pathwayTable, columns = c("ES", "NES"), digits = 2)
@@ -734,15 +735,21 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
       scale_size_continuous(name = "Leading edge") +
       labs(
-        title = paste(input$selectIn1, "vs", input$selectIn2),
+        title = paste(input$selectIn2, "vs", input$selectIn1),
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
         y = NULL
       ) +
       theme_classic() +
-      theme(panel.spacing.y = grid::unit(0.25, "lines"))
+      theme(
+        text = element_text(size = 12),
+        panel.spacing.y = grid::unit(0.25, "lines")
+      )
 
     ggplotly(pathwayPlot, tooltip = "text") %>%
-      layout(hoverlabel = list(align = "left"))
+      layout(
+        hoverlabel = list(align = "left"),
+        margin = list(t = 80)
+      )
   })
 }
 
