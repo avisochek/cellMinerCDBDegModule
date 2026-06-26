@@ -152,7 +152,10 @@ degpInput <- function(id) {
                                       #actionButton("updatePathway", "Update Pathway Analysis"),
                                       tabsetPanel(
                                         tabPanel("FGSEA Table",
-                                                 DT::DTOutput(ns("pathwayAnalysisResults"))),
+                                                 fluidRow(
+                                                   DT::DTOutput(ns("pathwayAnalysisResults")),
+                                                   downloadButton(ns("downloadFgseaResults"), "Download Results")
+                                                 )),
                                         tabPanel("Top FGSEA Plot",
                                                  plotlyOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
                                       ))
@@ -441,6 +444,17 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         
         fgseaResults <- fgseaResults[with(fgseaResults, order(-NES)), ]
         fgseaResults <- fgseaResults[, c("pathway", "pval", "padj", "ES", "NES", "leadingEdge")] # add leading edge, add datatable scroll
+
+        output$downloadFgseaResults <- downloadHandler(
+          filename = function() {
+            paste("FGSEA_results_", Sys.Date(), ".csv", sep="")
+          },
+          content = function(file) {
+            fgseaDownloadResults <- as.data.frame(fgseaResults)
+            fgseaDownloadResults$leadingEdge <- vapply(fgseaDownloadResults$leadingEdge, paste, character(1), collapse = ", ")
+            write.csv(fgseaDownloadResults, file, row.names = FALSE)
+          }
+        )
         
         renderAnalysisOutputs(input, output, degResults, exprData1, exprData2, fgseaResults)
         
