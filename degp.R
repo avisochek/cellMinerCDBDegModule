@@ -116,8 +116,8 @@ degpInput <- function(id) {
                  uiOutput(ns("groupInfoDisplay")),
                  br(),
                  tags$div(class = "sidebar-step-heading", "3. Select Contrast"),
-                 selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
                  selectizeInput(ns("selectIn2"), "Select Test Group:", choices = c("")),
+                 selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
                  br(),
                  tags$div(class = "sidebar-step-heading", "4. Run Analysis"),
                  actionButton(ns("runAnalysis"), "Run"),
@@ -583,7 +583,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         "Upregulated: Log2 FoldChange >= 1 & FDR < 0.05" = "red",
         "Downregulated: Log2 FoldChange <= -1 & FDR < 0.05" = "blue",
         "Not Significant" = "grey",
-        "Top 10 upregulated / downregulated" = "gold"
+        "Top 10 upregulated / downregulated" = "cyan"
       )) +
       labs(
         title = paste0('Volcano plot for: ', input$selectIn2, " vs ", input$selectIn1),
