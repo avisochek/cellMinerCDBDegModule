@@ -138,7 +138,7 @@ degpInput <- function(id) {
                              tabPanel("Volcano Plot",
                                       plotlyOutput(ns("volcanoPlot"))),
                              tabPanel("Heatmap",
-                                      plotlyOutput(ns("heatmapPlot"), height = "600px")),
+                                      plotlyOutput(ns("heatmapPlot"), height = "1000px")),
                              tabPanel("Pathway Analysis",
                                       # fluidRow(
                                       #   column(12,
@@ -613,40 +613,57 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     topDownregulated <- head(degResults[order(degResults$logFC, degResults$P.Value), ], 10)
     
     geneNames <- c(rownames(topDownregulated), rownames(topUpregulated))
-    #geneNames <- topGenes$Gene
-    
-    
+
     exprData1 <- data.frame(exprData1, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
     exprData2 <- data.frame(exprData2, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
-    
-    # print(dim(exprData1))
-    # print(dim(exprData2))
-    
-    
+
     expressionData <- cbind(exprData1, exprData2)
-    # print(dim(expressionData))
-    
-    # colnames(expressionData) <- c(paste(colnames(exprData1), "Group1", sep="_"),
-    #                                       paste(colnames(exprData2), "Group2", sep="_"))
+    groupColors <- setNames(
+      c("#0072B2", "#D55E00"),
+      c(input$selectIn1, input$selectIn2)
+    )
+    columnGroups <- data.frame(
+      Group = factor(
+        c(
+          rep(input$selectIn1, ncol(exprData1)),
+          rep(input$selectIn2, ncol(exprData2))
+        ),
+        levels = names(groupColors)
+      )
+    )
+    rownames(columnGroups) <- colnames(expressionData)
     
     expressionData <- expressionData[geneNames, , drop = FALSE]
     #Remove 'xsq' prefix from gene names
     rownames(expressionData) <- gsub("^xsq", "", rownames(expressionData))
     
-    heatmaply(expressionData, 
-              main = paste0("Heatmap of top 10 upregulated genes and bottom 10 downregulated genes in ", input$selectIn2, " vs ", input$selectIn1),
-              xlab = "Cell Lines", 
-              ylab = "Genes", 
-              colors = colorRampPalette(c("navy", "white", "firebrick"))(255),
-              show_rownames = TRUE,
-              show_colnames = TRUE,
-              show_dendrogram = c(FALSE, FALSE),
-              margins = c(NA, NA, 150, NA), ## Needed to make room for title
-              scale = "row",
-              # grid_gap = 1,
-              fontsize_col = 5,
-              fontsize_row = 10
-              )
+    columnLabelSize <- round(min(16, max(8, 260 / ncol(expressionData))))
+    heatmapPlot <- heatmaply(
+      expressionData,
+      main = paste0(
+        "Heatmap of top 10 upregulated genes and bottom 10 downregulated genes in ",
+        input$selectIn2,
+        " vs ",
+        input$selectIn1
+      ),
+      xlab = "Cell Lines",
+      ylab = "Genes",
+      colors = colorRampPalette(c("#2166AC", "#F7F7F7", "#B2182B"))(255),
+      col_side_colors = columnGroups,
+      col_side_palette = groupColors,
+      dendrogram = "column",
+      show_dendrogram = c(FALSE, TRUE),
+      # Needed to make room for the title and legend
+      margins = c(NA, NA, 170, 180),
+      scale = "row",
+      fontsize_col = columnLabelSize,
+      fontsize_row = 10
+    )
+
+    heatmapPlot$x$layout$showlegend <- TRUE
+    heatmapPlot$x$layout$legend$font <- list(size = 16)
+
+    heatmapPlot
     
   })
   
