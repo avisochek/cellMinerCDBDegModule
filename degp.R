@@ -130,7 +130,15 @@ degpInput <- function(id) {
                  br(),
                  uiOutput(ns("groupInfoDisplay")),
                  br(),
-                 tags$div(class = "sidebar-step-heading", "3. Select Contrast"),
+                 tags$div(
+                   class = "sidebar-step-heading",
+                   "3. Select Contrast",
+                   actionLink(
+                     ns("contrastHelp"),
+                     label = NULL,
+                     icon = icon("question-circle")
+                   )
+                 ),
                  selectizeInput(ns("selectIn2"), "Select Test Group:", choices = c("")),
                  selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
                  br(),
@@ -256,6 +264,19 @@ degpServer <- function(input, output, session, srcContentReactive, config){
               # Enable row selection
               selection = 'multiple')
     
+  })
+
+  observeEvent(input$contrastHelp, {
+    shinyalert::shinyalert(
+      title = "Contrast",
+      text = paste(
+        "Contrast defines the comparison used to calculate differential",
+        "expression. It specifies which group is compared against another",
+        "(e.g., test vs. control), determining the direction and",
+        "interpretation of the reported statistics."
+      ),
+      type = "info"
+    )
   })
   
   #Create datatable proxy to manipulate the table
