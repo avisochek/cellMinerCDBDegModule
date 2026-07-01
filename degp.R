@@ -648,18 +648,35 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       ),
       xlab = "Cell Lines",
       ylab = "Genes",
+      label_names = c("Gene", "Cell line", "Z score"),
       colors = colorRampPalette(c("#2166AC", "#F7F7F7", "#B2182B"))(255),
       col_side_colors = columnGroups,
       col_side_palette = groupColors,
       dendrogram = "column",
       show_dendrogram = c(FALSE, TRUE),
+      dend_hoverinfo = FALSE,
       # Needed to make room for the title and legend
       margins = c(NA, NA, 170, 180),
       scale = "row",
       fontsize_col = columnLabelSize,
-      fontsize_row = 10
+      fontsize_row = 10,
+      custom_hovertext = matrix(
+        paste0(
+          "Original expression (log2(FKCPM)): ",
+          trimws(format(as.matrix(expressionData), digits = 4))
+        ),
+        nrow = nrow(expressionData),
+        dimnames = dimnames(expressionData)
+      )
     )
+    ## Hide tooltip for group info display
+    heatmapPlot$x$data <- lapply(heatmapPlot$x$data, function(trace) {
+      if (identical(trace$yaxis, "y2")) {
+        trace$hoverinfo <- "skip"
+      }
 
+      trace
+    })
     heatmapPlot$x$layout$showlegend <- TRUE
     heatmapPlot$x$layout$legend$font <- list(size = 16)
 
