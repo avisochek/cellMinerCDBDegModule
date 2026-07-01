@@ -70,14 +70,29 @@ degpInput <- function(id) {
   tabPanel("Differential Expression Analysis",
   fluidPage(
   useShinyjs(),
+  useShinyalert(),
     tags$head(
       tags$style(HTML("
+        :root {
+          --app-message-font-size: 18px;
+        }
         .shiny-notification {
           position: fixed !important;
           top: 40% !important;
           left: 50% !important;
           width: auto !important;
           padding: 10px !important;
+        }
+        .shiny-notification,
+        .shiny-progress-notification,
+        .shiny-progress-notification .progress-message,
+        .shiny-progress-notification .progress-detail,
+        .sweet-alert,
+        .sweet-alert h2,
+        .sweet-alert p,
+        .swal-title,
+        .swal-text {
+          font-size: var(--app-message-font-size) !important;
         }
         .sidebar-step-heading {
           display: block;
@@ -251,37 +266,60 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     selectedRows <- input$dataSetTable_rows_selected
     groupName <- stringr::str_trim(input$groupName)
     
-    if(length(selectedRows) > 2 && groupName != ""){
-      
-      #Update Group column 
-      sampleTable <- state$sampleData()
-      # Maximum of 3 allowed groups
-      if(length(unique(na.omit(sampleTable$Group))) > 2) {
-        shiny::showNotification("You may add a maximum of 3 groups. Please delete an existing group before creating another group", type = "error")
-        return()
-      }
+    if (groupName ==""){
+      shinyalert::shinyalert(
+        title = "Error",
+        text = "Please type a name for the group.",
+        type = "error"
+      )
+      return()
+    }
 
-      sampleTable$Group[selectedRows] <- groupName
-      state$sampleData(sampleTable)
-      state$degFit(NULL)
-      
-      groupCount <- sum(sampleTable$Group == groupName, na.rm = TRUE)
-      
-      #Reset selection in table
-      DT::selectRows(dataSetTable_proxy, NULL)
-      
-      #Group creation notification
-      shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
-      
-      #Clear UI
-      updateSelectizeInput(session, "selectIn1", selected = "")
-      updateSelectizeInput(session, "selectIn2", selected = "")
-      updateTextInput(session, "groupName", value = "")
-      updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
+    if (length(selectedRows) < 3) {
+      shinyalert::shinyalert(
+        title = "Error",
+        text = paste(
+          "Please select at least 3 cell lines to add a group.",
+          "If you used the tissue selector, you may need to add additional",
+          "tissue groups or choose a tissue group that has more cell lines."
+        ),
+        type = "error"
+      )
+      return()
     }
-    else {
-      shiny::showNotification("Please select at least 3 cell lines to add a group. If you used the tissue selector, you may need to add additional tissue groups or choose a tissue group that has more cell lines.", type = "error")
+       
+    sampleTable <- state$sampleData()
+    # Maximum of 3 allowed groups
+    if(length(unique(na.omit(sampleTable$Group))) > 2) {
+      shinyalert::shinyalert(
+        title = "Error",
+        text = paste(
+          "You may add a maximum of 3 groups.",
+          "Please delete an existing group before creating another group."
+        ),
+        type = "error"
+      )
+      return()
     }
+
+    #Update Group column
+    sampleTable$Group[selectedRows] <- groupName
+    state$sampleData(sampleTable)
+    state$degFit(NULL)
+    
+    groupCount <- sum(sampleTable$Group == groupName, na.rm = TRUE)
+    
+    #Reset selection in table
+    DT::selectRows(dataSetTable_proxy, NULL)
+    
+    #Group creation notification
+    shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
+    
+    #Clear UI
+    updateSelectizeInput(session, "selectIn1", selected = "")
+    updateSelectizeInput(session, "selectIn2", selected = "")
+    updateTextInput(session, "groupName", value = "")
+    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
     
   })
   
@@ -378,7 +416,24 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   # Run the analysis and return a datatable of results
   observeEvent(input$runAnalysis,{
     if (!is.null(input$selectIn1) && input$selectIn1 != "" && input$selectIn1 == input$selectIn2) {
-      shiny::showNotification("Please select two different groups to run contrast", type = "error")
+      shinyalert::shinyalert(
+        title = "Error",
+        text = paste(
+          "The test and control group can not be the same.",
+          "Please select two different groups."
+        ),
+        type = "error"
+      )
+      return()
+    }
+
+    if ((is.null(input$selectIn1) | input$selectIn1 == "") |
+        (is.null(input$selectIn2) | input$selectIn2 == "")) {
+      shinyalert::shinyalert(
+        title = "Error",
+        text = "Please select two groups to run contrast.",
+        type = "error"
+      )
       return()
     }
     
@@ -391,7 +446,6 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     #Add progress bar 
     
     withProgress(message = 'Analysis in progress', {
-      if (!is.null(input$selectIn1) && !is.null(input$selectIn2)) {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
         molPharmData <- selectedDataSource()[["molPharmData"]]
@@ -464,13 +518,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         renderAnalysisOutputs(input, output, degResults, exprData1, exprData2, fgseaResults)
         
         incProgress(0.2, detail = "Finalizing analysis...")
-      }
-      else {
-        shiny::showNotification("Please select two groups to run contrast", type = "error")
-      }
-      
     })
-    
   })
   
   # New selection
@@ -505,10 +553,9 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     DT::selectRows(dataSetTable_proxy, NULL)
     
   })
+}  
   
   
-  
-}
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
 renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
   output_title_size <- 24
