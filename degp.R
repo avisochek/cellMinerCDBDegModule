@@ -469,6 +469,14 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         degResults <- calculateLimmaContrast(state$degFit(), input$selectIn1, input$selectIn2)
         # Order by fold change, then p-value
         degResults <- degResults[with(degResults, order(-logFC, P.Value)), ]
+        degResults$`Mean expression test` <- rowMeans(
+          exprData2[rownames(degResults), , drop = FALSE],
+          na.rm = TRUE
+        )
+        degResults$`Mean expression ctrl` <- rowMeans(
+          exprData1[rownames(degResults), , drop = FALSE],
+          na.rm = TRUE
+        )
         
         # #Increment progress
         incProgress(0.2, detail = "Rendering results...")
@@ -562,11 +570,35 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
 
   # Render in results table
   output$resultsTable <- DT::renderDT({
-    resultsTable <- datatable(degResults, 
+    resultsColumnNames <- c(
+      Gene = "Gene",
+      logFC = "Log Fold Change",
+      AveExpr = "Mean expression",
+      t = "T Value",
+      P.Value = "P Value",
+      adj.P.Val = "Adjusted P Value",
+      B = "B Statistic",
+      Annotation = "Annotations",
+      `Mean expression test` = "Mean expression test",
+      `Mean expression ctrl` = "Mean expression ctrl"
+    )
+    hiddenColumns <- match(
+      c("AveExpr", "t", "P.Value", "B"),
+      colnames(degResults)
+    ) - 1
+
+    resultsTable <- datatable(degResults,
+              rownames = FALSE,
+              extensions = "Buttons",
+              colnames = unname(resultsColumnNames[colnames(degResults)]),
               options = list(
+                dom = "Bfrtip",
+                buttons = list(
+                  list(extend = "colvis", text = "Column visibility")
+                ),
                 search = list(regex = TRUE),
                 columnDefs = list(
-                  list(visible = FALSE, targets = 0) 
+                  list(visible = FALSE, targets = hiddenColumns)
                 )
               ),
               filter = 'top',
@@ -579,7 +611,18 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
               
     )
     
-    resultsTable <- DT::formatRound(resultsTable, columns = c("logFC", "AveExpr", "t", "B"), digits = 2)
+    resultsTable <- DT::formatRound(
+      resultsTable,
+      columns = c(
+        "logFC",
+        "AveExpr",
+        "t",
+        "B",
+        "Mean expression test",
+        "Mean expression ctrl"
+      ),
+      digits = 2
+    )
     resultsTable <- DT::formatSignif(resultsTable, columns = c("P.Value", "adj.P.Val"), digits = 3)
     resultsTable
   })
