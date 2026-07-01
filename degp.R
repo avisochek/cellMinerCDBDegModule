@@ -194,9 +194,14 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     })
 
     filteredSrcContent(srcContent)
+    # Indicate in the dataset selection whether we are using rna-seq or microarray data for each dataset
     dataSourceChoices <- setNames(
       names(srcContent),
-      vapply(expressionConfig[names(srcContent)], function(x) { x[["displayName"]] }, character(1))
+      vapply(names(srcContent), function(x) {
+        mol_data <- srcContent[[x]][["molPharmData"]]
+        assay_label <- if (!is.null(mol_data$xsq)) "RNA-seq" else "microarray"
+        paste0(expressionConfig[[x]][["displayName"]], " (", assay_label, ")")
+      }, character(1))
     )
     selectedDataSourceName <- if ("nci60" %in% dataSourceChoices) "nci60" else dataSourceChoices[[1]]
     updateSelectInput(session, "dataSet", choices = dataSourceChoices, selected = selectedDataSourceName)
