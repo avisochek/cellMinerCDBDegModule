@@ -511,6 +511,8 @@ degpServer <- function(input, output, session, srcContentReactive, config){
 }
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
 renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
+  output_title_size <- 24
+
   # Render in results table
   output$resultsTable <- DT::renderDT({
     resultsTable <- datatable(degResults, 
@@ -522,7 +524,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
               ),
               filter = 'top',
               caption = HTML(paste0(
-                "<div style='font-size: 24px; line-height: 1.35;'>",
+                "<div style='font-size: 24px; line-height: 1.35; color: black;'>",
                 "Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1,
                 "<br><small style='font-size: 13px;'>Search table by regular expressions</small>",
                 "</div>"
@@ -591,7 +593,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         "Top 10 upregulated / downregulated" = "cyan"
       )) +
       labs(
-        title = paste0('Volcano plot for: ', input$selectIn2, " vs ", input$selectIn1),
+        title = paste0('Volcano Plot: ', input$selectIn2, " vs ", input$selectIn1),
         x = "Log2 Fold Change",
         y = "-Log10 FDR"
       ) +
@@ -604,7 +606,10 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       theme_classic()
   
     volcano_plot <- ggplotly(volcano_plot, tooltip = "text") %>%
-      layout(margin = list(t = 80))
+      layout(
+        title = list(font = list(size = output_title_size)),
+        margin = list(t = 80)
+      )
     
     volcano_plot
     
@@ -643,14 +648,9 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     rownames(expressionData) <- gsub("^xsq", "", rownames(expressionData))
     
     columnLabelSize <- round(min(16, max(8, 260 / ncol(expressionData))))
+    heatmap_title <- paste0("Heatmap: ", input$selectIn2, " vs ", input$selectIn1)
     heatmapPlot <- heatmaply(
       expressionData,
-      main = paste0(
-        "Heatmap of top 10 upregulated genes and bottom 10 downregulated genes in ",
-        input$selectIn2,
-        " vs ",
-        input$selectIn1
-      ),
       xlab = "Cell Lines",
       ylab = "Genes",
       label_names = c("Gene", "Cell line", "Z score"),
@@ -684,8 +684,15 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     })
     heatmapPlot$x$layout$showlegend <- TRUE
     heatmapPlot$x$layout$legend$font <- list(size = 16)
-
-    heatmapPlot
+    layout(
+      heatmapPlot,
+      title = list(
+        text = heatmap_title,
+        font = list(size = output_title_size),
+        x = 0,
+        xanchor = "left"
+      )
+    )
     
   })
   
@@ -729,7 +736,16 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                 )
               ),
               filter = 'top',
-              caption = paste("Pathway Analysis Results: ", input$selectIn2, " vs ", input$selectIn1))
+              caption = HTML(paste0(
+                "<div style='font-size: ",
+                output_title_size,
+                "px; line-height: 1.35; color: black;'>",
+                "Pathway Analysis Results: ",
+                input$selectIn2,
+                " vs ",
+                input$selectIn1,
+                "</div>"
+              )))
    
    pathwayTable <- DT::formatSignif(pathwayTable, columns = c("pval", "padj"), digits = 3)
    pathwayTable <- DT::formatRound(pathwayTable, columns = c("ES", "NES"), digits = 2)
@@ -788,7 +804,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
       scale_size_continuous(name = "Leading edge") +
       labs(
-        title = paste(input$selectIn2, "vs", input$selectIn1),
+        title = paste0("Top Pathways: ", input$selectIn2, " vs ", input$selectIn1),
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
         y = NULL
       ) +
@@ -800,6 +816,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
 
     ggplotly(pathwayPlot, tooltip = "text") %>%
       layout(
+        title = list(font = list(size = output_title_size)),
         hoverlabel = list(align = "left"),
         margin = list(t = 80)
       )
