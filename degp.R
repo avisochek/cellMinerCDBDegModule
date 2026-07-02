@@ -154,14 +154,21 @@ degpInput <- function(id) {
                                       )
                              ),
                              tabPanel("Results",
+                                      uiOutput(ns("resultsHeading")),
                                       fluidRow(
                                         withSpinner(DT::DTOutput(ns("resultsTable"))),
                                         downloadButton(ns("downloadResults"), "Download Results")
                                       )),
                              tabPanel("Volcano Plot",
+                                      uiOutput(ns("volcanoHeading")),
                                       plotlyOutput(ns("volcanoPlot"))),
                              tabPanel("Heatmap",
-                                      plotlyOutput(ns("heatmapPlot"), height = "1000px")),
+                                      uiOutput(ns("heatmapHeading")),
+                                      plotlyOutput(
+                                        ns("heatmapPlot"),
+                                        width = "100%",
+                                        height = "700px"
+                                      )),
                              tabPanel("Pathway Analysis",
                                       # fluidRow(
                                       #   column(12,
@@ -175,11 +182,13 @@ degpInput <- function(id) {
                                       #actionButton("updatePathway", "Update Pathway Analysis"),
                                       tabsetPanel(
                                         tabPanel("FGSEA Table",
+                                                 uiOutput(ns("pathwayAnalysisHeading")),
                                                  fluidRow(
                                                    DT::DTOutput(ns("pathwayAnalysisResults")),
                                                    downloadButton(ns("downloadFgseaResults"), "Download Results")
                                                  )),
                                         tabPanel("Top FGSEA Plot",
+                                                 uiOutput(ns("pathwayAnalysisTopDotPlotHeading")),
                                                  plotlyOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
                                       ))
                  )
@@ -574,9 +583,14 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     
     #Clear tables and plots 
     output$resultsTable <- DT::renderDT({datatable(data.frame())})  
+    output$resultsHeading <- renderUI(NULL)
     output$volcanoPlot <- renderPlot({NULL})  
+    output$volcanoHeading <- renderUI(NULL)
+    output$heatmapHeading <- renderUI(NULL)
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
+    output$pathwayAnalysisHeading <- renderUI(NULL)
     output$pathwayAnalysisTopDotPlot <- renderPlotly({NULL}) 
+    output$pathwayAnalysisTopDotPlotHeading <- renderUI(NULL)
     
     #Clear data table 
     DT::selectRows(dataSetTable_proxy, NULL)
@@ -587,7 +601,12 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
 renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
-  output_title_size <- 24
+  output$resultsHeading <- renderUI({
+    tagList(
+      tags$h3(paste0("Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1)),
+      helpText("Search table by regular expressions")
+    )
+  })
 
   # Render in results table
   output$resultsTable <- DT::renderDT({
@@ -622,13 +641,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                   list(visible = FALSE, targets = hiddenColumns)
                 )
               ),
-              filter = 'top',
-              caption = HTML(paste0(
-                "<div style='font-size: 24px; line-height: 1.35; color: black;'>",
-                "Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1,
-                "<br><small style='font-size: 13px;'>Search table by regular expressions</small>",
-                "</div>"
-              ))
+              filter = 'top'
               
     )
     
@@ -649,6 +662,10 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   })
   
   
+  output$volcanoHeading <- renderUI({
+    tags$h3(paste0("Volcano Plot: ", input$selectIn2, " vs ", input$selectIn1))
+  })
+
   output$volcanoPlot <- renderPlotly({
     
     degResults <- degResults[abs(degResults$logFC) >= 0.10, ]
@@ -693,7 +710,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         shape = 1,
         fill = NA,
         size = pointSize,
-        stroke = 0.5
+        stroke = 0.2
       ) +
       geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
       geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
@@ -704,7 +721,6 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         "Top 10 upregulated / downregulated" = "cyan"
       )) +
       labs(
-        title = paste0('Volcano Plot: ', input$selectIn2, " vs ", input$selectIn1),
         x = "Log2 Fold Change",
         y = "-Log10 FDR"
       ) +
@@ -716,17 +732,26 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       ) +
       theme_classic()
   
-    volcano_plot <- ggplotly(volcano_plot, tooltip = "text") %>%
-      layout(
-        title = list(font = list(size = output_title_size)),
-        margin = list(t = 80)
-      )
+    volcano_plot <- ggplotly(volcano_plot, tooltip = "text")
     
     volcano_plot
     
   })
   
   
+  output$heatmapHeading <- renderUI({
+    tagList(
+      tags$h3(paste0("Heatmap: ", input$selectIn2, " vs ", input$selectIn1)),
+      helpText(
+        "Top 10 upregulated and top 10 downregulated genes",
+        tags$br(),
+        "Distance metric: Pearson correlation",
+        tags$br(),
+        "Clustering method: complete linkage"
+      )
+    )
+  })
+
   ## Heatmap
   output$heatmapPlot <- renderPlotly({
     
@@ -759,26 +784,33 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     rownames(expressionData) <- gsub("^xsq", "", rownames(expressionData))
     
     columnLabelSize <- round(min(16, max(8, 260 / ncol(expressionData))))
-    heatmap_title <- paste0("Heatmap: ", input$selectIn2, " vs ", input$selectIn1)
+    # Height proportions for each component of the heatmap plot
+    heatmap_body_height <- 0.8
+    column_group_height <- 0.05
+    dendrogram_height <- 0.15
     heatmapPlot <- heatmaply(
       expressionData,
       xlab = "Cell Lines",
       ylab = "Genes",
       label_names = c("Gene", "Cell line", "Z score"),
+      key.title = "Z score",
       colors = colorRampPalette(c("#2166AC", "#F7F7F7", "#B2182B"))(255),
       col_side_colors = columnGroups,
       col_side_palette = groupColors,
       dendrogram = "column",
       show_dendrogram = c(FALSE, TRUE),
       dend_hoverinfo = FALSE,
-      # Needed to make room for the title and legend
-      margins = c(NA, NA, 170, 180),
+      distfun_col = "pearson",
+      hclust_method = "complete",
+      # Needed to make room for the legend
+      margins = c(NA, NA, NA, 180),
+      subplot_heights = c(dendrogram_height,column_group_height,heatmap_body_height),
       scale = "row",
       fontsize_col = columnLabelSize,
       fontsize_row = 10,
       custom_hovertext = matrix(
         paste0(
-          "Original expression (log2(FKCPM)): ",
+          "Original log2(FPKM+1): ",
           trimws(format(as.matrix(expressionData), digits = 4))
         ),
         nrow = nrow(expressionData),
@@ -795,20 +827,21 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     })
     heatmapPlot$x$layout$showlegend <- TRUE
     heatmapPlot$x$layout$legend$font <- list(size = 16)
+    # Leave column group title blank
+    heatmapPlot$x$layout$legend$title$text <- ""
     layout(
       heatmapPlot,
-      title = list(
-        text = heatmap_title,
-        font = list(size = output_title_size),
-        x = 0,
-        xanchor = "left"
-      )
+      autosize = TRUE
     )
     
   })
   
   
   # Display FGSEA results
+  output$pathwayAnalysisHeading <- renderUI({
+    tags$h3(paste0("Pathway Analysis Results: ", input$selectIn2, " vs ", input$selectIn1))
+  })
+
   output$pathwayAnalysisResults <- renderDT({
    truncateFgseaCell <- function(value, link = NA_character_) {
      value <- paste(value, collapse = ", ")
@@ -846,22 +879,16 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
                   list(targets = c(0,1,2,3,4), visible = TRUE)
                 )
               ),
-              filter = 'top',
-              caption = HTML(paste0(
-                "<div style='font-size: ",
-                output_title_size,
-                "px; line-height: 1.35; color: black;'>",
-                "Pathway Analysis Results: ",
-                input$selectIn2,
-                " vs ",
-                input$selectIn1,
-                "</div>"
-              )))
+              filter = 'top')
    
    pathwayTable <- DT::formatSignif(pathwayTable, columns = c("pval", "padj"), digits = 3)
    pathwayTable <- DT::formatRound(pathwayTable, columns = c("ES", "NES"), digits = 2)
    pathwayTable
    
+  })
+
+  output$pathwayAnalysisTopDotPlotHeading <- renderUI({
+    tags$h3(paste0("Top Pathways: ", input$selectIn2, " vs ", input$selectIn1))
   })
 
   output$pathwayAnalysisTopDotPlot <- renderPlotly({
@@ -915,7 +942,6 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
       scale_size_continuous(name = "Leading edge") +
       labs(
-        title = paste0("Top Pathways: ", input$selectIn2, " vs ", input$selectIn1),
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
         y = NULL
       ) +
@@ -927,9 +953,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
 
     ggplotly(pathwayPlot, tooltip = "text") %>%
       layout(
-        title = list(font = list(size = output_title_size)),
-        hoverlabel = list(align = "left"),
-        margin = list(t = 80)
+        hoverlabel = list(align = "left")
       )
   })
 }
