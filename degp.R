@@ -189,7 +189,7 @@ degpInput <- function(id) {
                                                  )),
                                         tabPanel("Top FGSEA Plot",
                                                  uiOutput(ns("pathwayAnalysisTopDotPlotHeading")),
-                                                 plotlyOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
+                                                 plotOutput(ns("pathwayAnalysisTopDotPlot"), height = "700px"))
                                       ))
                  )
                )
@@ -592,7 +592,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     output$heatmapHeading <- renderUI(NULL)
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
     output$pathwayAnalysisHeading <- renderUI(NULL)
-    output$pathwayAnalysisTopDotPlot <- renderPlotly({NULL}) 
+    output$pathwayAnalysisTopDotPlot <- renderPlot({NULL}) 
     output$pathwayAnalysisTopDotPlotHeading <- renderUI(NULL)
     
     #Clear data table 
@@ -894,19 +894,12 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     tags$h3(paste0("Top 20 Pathways: ", input$selectIn2, " vs ", input$selectIn1))
   })
 
-  output$pathwayAnalysisTopDotPlot <- renderPlotly({
+  output$pathwayAnalysisTopDotPlot <- renderPlot({
     pathwayPlotData <- as.data.frame(fgseaResults) %>%
       filter(!is.na(padj)) %>%
       mutate(
-        adjustedPValueLog10 = -log10(padj),
-        leadingEdgeCount = lengths(leadingEdge),
-        .hoverText = paste0(
-          "Pathway: ", pathway,
-          "<br>NES: ", round(NES, 2),
-          "<br>-log10 adjusted p-value: ", round(adjustedPValueLog10, 2),
-          "<br>Adjusted p-value: ", signif(padj, 3),
-          "<br>Leading edge genes: ", leadingEdgeCount
-        )
+        ## constrain -log10 FDR so that outliers do not take up too much of the screen
+        adjustedPValueLog10 = scales::squish(-log10(padj), range = c(1, 20))
       )
 
     shiny::validate(
@@ -935,10 +928,21 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         x = NES,
         y = reorder(pathway, -NES),
         fill = NES,
-        size = adjustedPValueLog10,
-        text = .hoverText
+        size = adjustedPValueLog10
       )
     ) +
+      geom_segment(
+        data = topPathwayPlotData,
+        aes(
+          x = -Inf,
+          xend = NES,
+          y = reorder(pathway, -NES),
+          yend = reorder(pathway, -NES)
+        ),
+        color = "grey80",
+        linewidth = 0.3,
+        inherit.aes = FALSE
+      ) +
       geom_point(shape = 21, color = "grey35", stroke = 0.3) +
       facet_wrap(~ .direction, ncol = 1, scales = "free") +
       scale_x_continuous(expand = expansion(mult = 0.05)) +
@@ -959,7 +963,11 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         limits = c(-nesLimit, nesLimit)
       ) +
       scale_size_continuous(
-        range = c(3, 9)
+        name = "-log10 adjusted p-value",
+        range = c(3, 12),
+        breaks = c(1, 2, 3),
+        labels = c("1", "2", "3"),
+        limits = c(1, 20)
       ) +
       labs(
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
@@ -973,15 +981,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         panel.spacing.y = grid::unit(0.1, "lines")
       )
 
-    ggplotly(pathwayPlot, tooltip = "text") %>%
-      layout(
-        xaxis = list(domain = c(0.35, 1), automargin = TRUE),
-        xaxis2 = list(domain = c(0.35, 1), automargin = TRUE),
-        yaxis = list(automargin = TRUE),
-        yaxis2 = list(automargin = TRUE),
-        hoverlabel = list(align = "left"),
-        margin = list(l = 20, b = 100)
-      )
+    pathwayPlot
   })
 }
 
