@@ -537,6 +537,9 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         #Perform FGSEA analysis
         fgseaResults <- fgsea(pathways = combinedGeneSets,
                               stats = state$fgseaStats$geneRanking,
+                              nperm = 10000,
+                              minSize = 5,
+                              maxSize = 500,
                               scoreType = "std")
         
         fgseaResults <- fgseaResults[with(fgseaResults, order(-NES)), ]
@@ -888,18 +891,19 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   })
 
   output$pathwayAnalysisTopDotPlotHeading <- renderUI({
-    tags$h3(paste0("Top Pathways: ", input$selectIn2, " vs ", input$selectIn1))
+    tags$h3(paste0("Top 20 Pathways: ", input$selectIn2, " vs ", input$selectIn1))
   })
 
   output$pathwayAnalysisTopDotPlot <- renderPlotly({
     pathwayPlotData <- as.data.frame(fgseaResults) %>%
       filter(!is.na(padj)) %>%
       mutate(
-        .sign = if_else(NES >= 0, "activated", "suppressed"),
+        adjustedPValueLog10 = -log10(padj),
         leadingEdgeCount = lengths(leadingEdge),
         .hoverText = paste0(
           "Pathway: ", pathway,
           "<br>NES: ", round(NES, 2),
+          "<br>-log10 adjusted p-value: ", round(adjustedPValueLog10, 2),
           "<br>Adjusted p-value: ", signif(padj, 3),
           "<br>Leading edge genes: ", leadingEdgeCount
         )
@@ -909,38 +913,54 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       shiny::need(nrow(pathwayPlotData) > 0, "No Hallmark FGSEA pathways available.")
     )
 
-    nesLimit <- max(abs(pathwayPlotData$NES), na.rm = TRUE)
     topUpregulated <- pathwayPlotData %>%
       filter(NES > 0) %>%
       slice_max(order_by = NES, n = 10, with_ties = FALSE) %>%
-      mutate(.direction = "Top 10 upregulated")
+      mutate(.direction = "Upregulated")
     topDownregulated <- pathwayPlotData %>%
       filter(NES < 0) %>%
       slice_min(order_by = NES, n = 10, with_ties = FALSE) %>%
-      mutate(.direction = "Top 10 downregulated")
+      mutate(.direction = "Downregulated")
     topPathwayPlotData <- bind_rows(topDownregulated, topUpregulated) %>%
-      mutate(.direction = factor(.direction, levels = c("Top 10 downregulated", "Top 10 upregulated")))
+      mutate(.direction = factor(.direction, levels = c("Downregulated", "Upregulated")))
 
     shiny::validate(
       shiny::need(nrow(topPathwayPlotData) > 0, "No upregulated or downregulated Hallmark FGSEA pathways available.")
     )
 
-    pathwayPlot <- ggplot(topPathwayPlotData, aes(x = NES, y = reorder(pathway, -NES), color = .sign, size = leadingEdgeCount, text = .hoverText)) +
-      geom_point() +
-      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-      facet_wrap(~ .direction, ncol = 1, scales = "free_y") +
-      scale_x_continuous(limits = c(-nesLimit, nesLimit)) +
+    nesLimit <- max(abs(topPathwayPlotData$NES), na.rm = TRUE)
+    pathwayPlot <- ggplot(
+      topPathwayPlotData,
+      aes(
+        x = NES,
+        y = reorder(pathway, -NES),
+        fill = NES,
+        size = adjustedPValueLog10,
+        text = .hoverText
+      )
+    ) +
+      geom_point(shape = 21, color = "grey35", stroke = 0.3) +
+      facet_wrap(~ .direction, ncol = 1, scales = "free") +
+      scale_x_continuous(expand = expansion(mult = 0.05)) +
       scale_y_discrete(
-        expand = expansion(add = 0.2),
+        expand = expansion(add = 0.6),
         labels = function(pathway) {
           pathway %>%
-            str_remove("^(HALLMARK|REACTOME)_") %>%
             str_replace_all("_", " ") %>%
-            str_trunc(width = 40)
+            str_trunc(width = 75)
         }
       ) +
-      scale_color_manual(name = "Direction", values = c("activated" = "red", "suppressed" = "blue")) +
-      scale_size_continuous(name = "Leading edge") +
+      scale_fill_gradient2(
+        name = "NES",
+        low = "blue",
+        mid = "white",
+        high = "red",
+        midpoint = 0,
+        limits = c(-nesLimit, nesLimit)
+      ) +
+      scale_size_continuous(
+        range = c(3, 9)
+      ) +
       labs(
         x = "Normalized Enrichment Score (suppressed <- 0 -> activated)",
         y = NULL
@@ -948,12 +968,19 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       theme_classic() +
       theme(
         text = element_text(size = 12),
-        panel.spacing.y = grid::unit(0.25, "lines")
+        axis.text.y = element_text(size = 10, margin = margin(r = 2)),
+        strip.text = element_text(size = 13),
+        panel.spacing.y = grid::unit(0.1, "lines")
       )
 
     ggplotly(pathwayPlot, tooltip = "text") %>%
       layout(
-        hoverlabel = list(align = "left")
+        xaxis = list(domain = c(0.35, 1), automargin = TRUE),
+        xaxis2 = list(domain = c(0.35, 1), automargin = TRUE),
+        yaxis = list(automargin = TRUE),
+        yaxis2 = list(automargin = TRUE),
+        hoverlabel = list(align = "left"),
+        margin = list(l = 20, b = 100)
       )
   })
 }
