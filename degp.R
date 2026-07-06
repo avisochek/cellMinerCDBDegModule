@@ -509,6 +509,8 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     showTab("mainTabset", "Volcano Plot")
     showTab("mainTabset", "Pathway Analysis")
     
+    fgseaSeed <- 123
+    
     #Add progress bar 
     
     withProgress(message = 'Analysis in progress', {
@@ -571,6 +573,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         
         state$fgseaStats$geneRanking <- sort(geneRanking, decreasing = TRUE)
         #Perform FGSEA analysis
+        set.seed(fgseaSeed)
         fgseaResults <- fgsea(pathways = combinedGeneSets,
                               stats = state$fgseaStats$geneRanking,
                               nperm = 10000,
