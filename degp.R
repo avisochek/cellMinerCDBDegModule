@@ -124,8 +124,16 @@ degpInput <- function(id) {
                  tags$p(class = "sidebar-helper-text", "When you are done, click 'Add Group'."),
                  br(),
                  textInput(ns("groupName"), "Group Name", value = ""),
-                 uiOutput(ns("tissueSelector")),
-                 actionButton(inputId = ns("addGroup"), label = "Add Group"),
+                 fluidRow(
+                   column(8, uiOutput(ns("tissueSelector"))),
+                   column(
+                     4,
+                     tags$div(
+                       style = "margin-top: 25px;",
+                       actionButton(inputId = ns("addGroup"), label = "Add Group")
+                     )
+                   )
+                 ),
                  br(),
                  br(),
                  uiOutput(ns("groupInfoDisplay")),
@@ -400,7 +408,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   })
   
   output$tissueSelector <- renderUI({
-    selectizeInput(session$ns("tissueGroup"), "Select Tissue", choices = tissueSelectionOptions(), selected = character(0), multiple = TRUE)
+    selectizeInput(session$ns("tissueGroup"), "Select Tissue(s)", choices = tissueSelectionOptions(), selected = character(0), multiple = TRUE)
   })
   
   observeEvent(input$tissueGroup, {
