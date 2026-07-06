@@ -327,6 +327,19 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     }
        
     sampleTable <- state$sampleData()
+    if (groupName %in% na.omit(sampleTable$Group)) {
+      shinyalert::shinyalert(
+        title = "Error",
+        text = paste(
+          "A group named", groupName, "already exists.",
+          "Please choose a different group name.",
+          "If you would like to replace the existing group, please delete it first."
+        ),
+        type = "error"
+      )
+      return()
+    }
+
     # Maximum of 3 allowed groups
     if(length(unique(na.omit(sampleTable$Group))) > 2) {
       shinyalert::shinyalert(
@@ -342,6 +355,11 @@ degpServer <- function(input, output, session, srcContentReactive, config){
 
     #Update Group column
     sampleTable$Group[selectedRows] <- groupName
+    groupCounts <- table(na.omit(sampleTable$Group))
+    undersizedGroups <- names(groupCounts[groupCounts < 3])
+    if (length(undersizedGroups) > 0) {
+      sampleTable$Group[sampleTable$Group %in% undersizedGroups] <- NA
+    }
     state$sampleData(sampleTable)
     state$degFit(NULL)
     
@@ -352,6 +370,16 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     
     #Group creation notification
     shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
+    if (length(undersizedGroups) > 0) {
+      shiny::showNotification(
+        paste(
+          "Removed",
+          paste(undersizedGroups, collapse = ", "),
+          "because they had fewer than 3 cell lines."
+        ),
+        type = "warning"
+      )
+    }
     
     #Clear UI
     updateSelectizeInput(session, "selectIn1", selected = "")
