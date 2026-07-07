@@ -134,6 +134,12 @@ degpInput <- function(id) {
           line-height: 1.35;
           margin: 0 0 6px;
         }
+        .heatmap-output-container .shiny-output-error-validation {
+          color: #A94442;
+          font-size: 20px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
       "))
     ),
              sidebarLayout(
@@ -200,10 +206,13 @@ degpInput <- function(id) {
                                       plotlyOutput(ns("volcanoPlot"))),
                              tabPanel("Heatmap",
                                       uiOutput(ns("heatmapHeading")),
-                                      plotlyOutput(
-                                        ns("heatmapPlot"),
-                                        width = "100%",
-                                        height = "700px"
+                                      tags$div(
+                                        class = "heatmap-output-container",
+                                        plotlyOutput(
+                                          ns("heatmapPlot"),
+                                          width = "100%",
+                                          height = "700px"
+                                        )
                                       )),
                              tabPanel("Pathway Analysis",
                                       # fluidRow(
@@ -813,7 +822,7 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     tagList(
       tags$h3(paste0("Heatmap: ", input$selectIn2, " vs ", input$selectIn1)),
       helpText(
-        "Top 10 upregulated and top 10 downregulated genes",
+        "Top 10 significant upregulated and top 10 significant downregulated genes",
         tags$br(),
         "Distance metric: Pearson correlation",
         tags$br(),
@@ -823,12 +832,32 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
   })
 
   ## Heatmap
+  heatmapPlotCache <- NULL
+
   output$heatmapPlot <- renderPlotly({
+    if (!is.null(heatmapPlotCache)) {
+      return(heatmapPlotCache)
+    }
     
-    topUpregulated <- head(degResults[order(-degResults$logFC, degResults$P.Value), ], 10)
-    topDownregulated <- head(degResults[order(degResults$logFC, degResults$P.Value), ], 10)
+    significantUpregulated <- degResults[degResults$adj.P.Val < 0.05 & degResults$logFC > 1, ]
+    significantDownregulated <- degResults[degResults$adj.P.Val < 0.05 & degResults$logFC < -1, ]
+
+    shiny::validate(
+      shiny::need(
+        nrow(significantUpregulated) >= 3 && nrow(significantDownregulated) >= 3,
+        "Not enough significant genes to display a heatmap. The heatmap requires at least three significant upregulated genes and three significant downregulated genes."
+      )
+    )
+
+    withProgress(message = "Loading heatmap", {
+      incProgress(0.1, detail = "Selecting significant genes...")
+
+    topUpregulated <- head(significantUpregulated[order(-significantUpregulated$logFC, significantUpregulated$adj.P.Val), ], 10)
+    topDownregulated <- head(significantDownregulated[order(significantDownregulated$logFC, significantDownregulated$adj.P.Val), ], 10)
     
     geneNames <- c(rownames(topDownregulated), rownames(topUpregulated))
+
+      incProgress(0.2, detail = "Preparing expression data...")
 
     exprData1 <- data.frame(exprData1, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
     exprData2 <- data.frame(exprData2, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
@@ -858,6 +887,9 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     heatmap_body_height <- 0.8
     column_group_height <- 0.05
     dendrogram_height <- 0.15
+
+      incProgress(0.5, detail = "Clustering heatmap...")
+
     heatmapPlot <- heatmaply(
       expressionData,
       xlab = "Cell Lines",
@@ -887,6 +919,9 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         dimnames = dimnames(expressionData)
       )
     )
+
+      incProgress(0.8, detail = "Finalizing heatmap...")
+
     ## Hide tooltip for group info display
     heatmapPlot$x$data <- lapply(heatmapPlot$x$data, function(trace) {
       if (identical(trace$yaxis, "y2")) {
@@ -899,10 +934,12 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     heatmapPlot$x$layout$legend$font <- list(size = 16)
     # Leave column group title blank
     heatmapPlot$x$layout$legend$title$text <- ""
-    layout(
+    heatmapPlotCache <<- layout(
       heatmapPlot,
       autosize = TRUE
     )
+    heatmapPlotCache
+    })
     
   })
   
