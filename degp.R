@@ -7,6 +7,7 @@ library(DT)
 library(jsonlite)
 library(stringr)
 library(fgsea)
+library(msigdbr)
 library(RColorBrewer)
 library(pheatmap)
 library(ggplot2)
@@ -52,13 +53,40 @@ combineGeneSets <- function(set1, set2) {
   return(combinedSets)
 }
 
+# Format MSigDB gene sets for fgsea
+formatMsigdbrGeneSets <- function(geneSetData) {
+  geneSetData %>%
+    distinct(gs_name, gene_symbol) %>%
+    group_by(gs_name) %>%
+    summarize(genes = list(gene_symbol), .groups = "drop") %>%
+    tibble::deframe()
+}
+
+# Build Reactome pathway links from MSigDB metadata
+buildReactomePathwayUrls <- function(reactomeData) {
+  reactomeData %>%
+    distinct(gs_name, gs_exact_source) %>%
+    mutate(reactomeUrl = paste0("https://www.reactome.org/content/detail/", gs_exact_source)) %>%
+    select(gs_name, reactomeUrl) %>%
+    tibble::deframe()
+}
+
 # Define gene sets for pathway analysis 
-hallmarkGeneSets <- gmtPathways("h.all.v2026.1.Hs.symbols.gmt")
+hallmarkGeneSets <- msigdbr(
+  db_species = "HS",
+  species = "Homo sapiens",
+  collection = "H"
+) %>%
+  formatMsigdbrGeneSets()
 dtbGeneSets <- gmtPathways("220411.Genelist.gmt")
-reactomeGeneSets <- gmtPathways("c2.cp.reactome.v2026.1.Hs.symbols.gmt")
-reactomePathwayUrls <- vapply(jsonlite::fromJSON("c2.cp.reactome.v2026.1.Hs.json", simplifyVector = FALSE), function(pathway) {
-  pathway[["externalDetailsURL"]]
-}, character(1))
+reactomeGeneSetData <- msigdbr(
+  db_species = "HS",
+  species = "Homo sapiens",
+  collection = "C2",
+  subcollection = "CP:REACTOME"
+)
+reactomeGeneSets <- formatMsigdbrGeneSets(reactomeGeneSetData)
+reactomePathwayUrls <- buildReactomePathwayUrls(reactomeGeneSetData)
 
 # Combine the gene sets
 combinedGeneSets <- combineGeneSets(hallmarkGeneSets, dtbGeneSets)
