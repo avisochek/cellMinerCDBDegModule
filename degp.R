@@ -203,7 +203,34 @@ degpInput <- function(id) {
                                       )),
                              tabPanel("Volcano Plot",
                                       uiOutput(ns("volcanoHeading")),
-                                      plotlyOutput(ns("volcanoPlot"))),
+                                      plotOutput(ns("volcanoPlot")),
+                                      fluidRow(
+                                        column(
+                                          4,
+                                          sliderInput(
+                                            ns("volcanoFdrThreshold"),
+                                            "-Log10 FDR significance threshold",
+                                            min = 1,
+                                            max = 5,
+                                            value = -log10(0.05),
+                                            step = 0.1
+                                          ),
+                                          sliderInput(
+                                            ns("volcanoLogFcThreshold"),
+                                            "Log2 fold-change significance threshold",
+                                            min = 0.1,
+                                            max = 5,
+                                            value = 1,
+                                            step = 0.1
+                                          ),
+                                          actionButton(ns("updateVolcanoPlot"), "Update Plot")
+                                        ),
+                                        column(
+                                          3,
+                                          style = "margin-top: 25px;",
+                                          uiOutput(ns("volcanoSignificanceCounts"))
+                                        )
+                                      )),
                              tabPanel("Heatmap",
                                       uiOutput(ns("heatmapHeading")),
                                       tags$div(
@@ -632,7 +659,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
           }
         )
         
-        renderAnalysisOutputs(input, output, degResults, exprData1, exprData2, fgseaResults)
+        renderAnalysisOutputs(input, output, session, degResults, exprData1, exprData2, fgseaResults)
         
         incProgress(0.2, detail = "Finalizing analysis...")
     })
@@ -665,6 +692,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     output$resultsHeading <- renderUI(NULL)
     output$volcanoPlot <- renderPlot({NULL})  
     output$volcanoHeading <- renderUI(NULL)
+    output$volcanoSignificanceCounts <- renderUI(NULL)
     output$heatmapHeading <- renderUI(NULL)
     output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
     output$pathwayAnalysisHeading <- renderUI(NULL)
@@ -679,7 +707,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
   
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
-renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData2, fgseaResults) {
+renderAnalysisOutputs <- function(input, output, session, degResults, exprData1, exprData2, fgseaResults) {
   output$resultsHeading <- renderUI({
     tagList(
       tags$h3(paste0("Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1)),
@@ -745,23 +773,67 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     tags$h3(paste0("Volcano Plot: ", input$selectIn2, " vs ", input$selectIn1))
   })
 
-  output$volcanoPlot <- renderPlotly({
-    
-    degResults <- degResults[abs(degResults$logFC) >= 0.10, ]
-    degResults$P.Value[degResults$adj.P.Val == 0] <- 10e-10
-    
-    
-    log_FC = degResults$logFC
-    log_pval = -log10(degResults$adj.P.Val)
-    upregulatedLabel <- "Upregulated: Log2 FoldChange >= 1 & FDR < 0.05"
-    downregulatedLabel <- "Downregulated: Log2 FoldChange <= -1 & FDR < 0.05"
+  volcanoResults <- degResults[abs(degResults$logFC) >= 0.10, ]
+  volcanoLogFdrRange <- range(-log10(volcanoResults$adj.P.Val), na.rm = TRUE)
+  volcanoLogFdrMax <- max(1, ceiling(volcanoLogFdrRange[2]))
+  volcanoLogFcMax <- ceiling(max(abs(volcanoResults$logFC), na.rm = TRUE) * 10) / 10
+  updateSliderInput(
+    session,
+    "volcanoFdrThreshold",
+    min = 1,
+    max = volcanoLogFdrMax,
+    value = max(1, min(-log10(0.05), volcanoLogFdrMax))
+  )
+  updateSliderInput(
+    session,
+    "volcanoLogFcThreshold",
+    min = 0.1,
+    max = volcanoLogFcMax,
+    value = min(1, volcanoLogFcMax)
+  )
+
+  volcanoThresholds <- eventReactive(input$updateVolcanoPlot, {
+    fdrThresholdLog10 <- req(input$volcanoFdrThreshold)
+
+    list(
+      fdrThresholdLog10 = fdrThresholdLog10,
+      fdrThreshold = 10 ^ -fdrThresholdLog10,
+      logFcThreshold = req(input$volcanoLogFcThreshold)
+    )
+  }, ignoreNULL = FALSE)
+
+  volcanoPlotData <- reactive({
+    thresholds <- volcanoThresholds()
+    fdrThreshold <- thresholds$fdrThreshold
+    fdrThresholdLog10 <- thresholds$fdrThresholdLog10
+    logFcThreshold <- thresholds$logFcThreshold
+    fdrThresholdLog10Label <- format(signif(fdrThresholdLog10, 3), scientific = FALSE, trim = TRUE)
+    logFcThresholdLabel <- format(signif(logFcThreshold, 3), scientific = FALSE, trim = TRUE)
+    volcanoResults <- degResults[abs(degResults$logFC) >= 0.10, ]
+    volcanoResults$P.Value[volcanoResults$adj.P.Val == 0] <- 10e-10
+
+    log_FC = volcanoResults$logFC
+    log_pval = -log10(volcanoResults$adj.P.Val)
+    upregulatedLabel <- paste0(
+      "Upregulated: Log2 FoldChange >= ",
+      logFcThresholdLabel,
+      ", -Log10 FDR >= ",
+      fdrThresholdLog10Label
+    )
+    downregulatedLabel <- paste0(
+      "Downregulated: Log2 FoldChange <= -",
+      logFcThresholdLabel,
+      ", -Log10 FDR >= ",
+      fdrThresholdLog10Label
+    )
     topGeneLabel <- "Top 10 upregulated / downregulated"
-    
+
+    isSignificant <- volcanoResults$adj.P.Val <= fdrThreshold
     Significant=rep("Not Significant",length(log_FC))
-    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC>=1)]=upregulatedLabel
-    Significant[which(degResults$adj.P.Val<0.05 & degResults$logFC<=-1)]=downregulatedLabel
-    
-    gene = sub("^xsq", "", rownames(degResults))
+    Significant[which(isSignificant & volcanoResults$logFC>=logFcThreshold)]=upregulatedLabel
+    Significant[which(isSignificant & volcanoResults$logFC<=-logFcThreshold)]=downregulatedLabel
+
+    gene = sub("^xsq", "", rownames(volcanoResults))
     volcano_data=data.frame(gene,log_FC,log_pval,Significant)
     significantUpregulated <- volcano_data[volcano_data$Significant == upregulatedLabel, ]
     significantDownregulated <- volcano_data[volcano_data$Significant == downregulatedLabel, ]
@@ -776,12 +848,35 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
     volcano_data$TopGene <- ifelse(volcano_data$gene %in% c(topUpregulatedGenes, topDownregulatedGenes),
                                    topGeneLabel,
                                    NA)
+
+    list(
+      data = volcano_data,
+      significantUpregulated = significantUpregulated,
+      significantDownregulated = significantDownregulated,
+      fdrThreshold = fdrThreshold,
+      fdrThresholdLog10 = thresholds$fdrThresholdLog10,
+      logFcThreshold = logFcThreshold,
+      upregulatedLabel = upregulatedLabel,
+      downregulatedLabel = downregulatedLabel,
+      topGeneLabel = topGeneLabel
+    )
+  })
+
+  output$volcanoPlot <- renderPlot({
+    plotData <- volcanoPlotData()
+    volcano_data <- plotData$data
     topGeneData <- volcano_data[!is.na(volcano_data$TopGene), ]
     pointSize <- 1.5
-    xAxisMax <- max(2, abs(log_FC), na.rm = TRUE)
-    yAxisMax <- max(2, log_pval, na.rm = TRUE)
-    
-    volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant, text = gene)) +
+    xAxisMax <- max(2, abs(volcano_data$log_FC), na.rm = TRUE)
+    yAxisMax <- max(2, volcano_data$log_pval, na.rm = TRUE) * 1.1
+    volcanoColors <- c("deepskyblue", "red", "black", "grey")
+    names(volcanoColors) <- c(
+      plotData$downregulatedLabel,
+      plotData$upregulatedLabel,
+      plotData$topGeneLabel,
+      "Not Significant"
+    )
+    volcano_plot <- ggplot(volcano_data, aes(x = log_FC, y = log_pval, color = Significant)) +
       geom_point(size = pointSize) +
       geom_point(
         data = topGeneData,
@@ -789,16 +884,27 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
         shape = 1,
         fill = NA,
         size = pointSize,
-        stroke = 0.2
+        stroke = 0.8
       ) +
-      geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
-      geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
-      scale_color_manual(values = c(
-        "Upregulated: Log2 FoldChange >= 1 & FDR < 0.05" = "red",
-        "Downregulated: Log2 FoldChange <= -1 & FDR < 0.05" = "blue",
-        "Not Significant" = "grey",
-        "Top 10 upregulated / downregulated" = "cyan"
-      )) +
+      ggrepel::geom_label_repel(
+        data = topGeneData,
+        aes(label = gene),
+        color = "black",
+        fill = "white",
+        size = 3,
+        label.size = 0.15,
+        label.padding = grid::unit(0.1, "lines"),
+        max.overlaps = Inf,
+        seed = 123,
+        show.legend = FALSE
+      ) +
+      geom_hline(yintercept = plotData$fdrThresholdLog10, linetype = "dashed", color = "black") +
+      geom_vline(xintercept = c(-plotData$logFcThreshold, plotData$logFcThreshold), linetype = "dashed", color = "black") +
+      scale_color_manual(
+        name = "Significance",
+        values = volcanoColors,
+        breaks = names(volcanoColors)
+      ) +
       labs(
         x = "Log2 Fold Change",
         y = "-Log10 FDR"
@@ -809,12 +915,28 @@ renderAnalysisOutputs <- function(input, output, degResults, exprData1, exprData
       scale_y_continuous(
         limits = c(0, yAxisMax)
       ) +
-      theme_classic()
-  
-    volcano_plot <- ggplotly(volcano_plot, tooltip = "text")
+      theme_classic() +
+      theme(
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.key.height = grid::unit(1.2, "lines"),
+        legend.key.width = grid::unit(0.8, "lines")
+      )
     
     volcano_plot
     
+  })
+
+  output$volcanoSignificanceCounts <- renderUI({
+    plotData <- volcanoPlotData()
+
+    tags$p(
+      tags$strong("Significant upregulated genes: "),
+      nrow(plotData$significantUpregulated),
+      tags$br(),
+      tags$strong("Significant downregulated genes: "),
+      nrow(plotData$significantDownregulated)
+    )
   })
   
   
