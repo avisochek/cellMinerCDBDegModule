@@ -134,6 +134,36 @@ degpInput <- function(id) {
           line-height: 1.35;
           margin: 0 0 6px;
         }
+        .sidebar-section-disabled {
+          opacity: 0.45;
+          pointer-events: none;
+        }
+        .contrast-help {
+          display: inline-block;
+          position: relative;
+          margin-left: 6px;
+          cursor: help;
+        }
+        .contrast-help-text {
+          display: none;
+          position: absolute;
+          z-index: 1000;
+          top: 100%;
+          left: 0;
+          width: 260px;
+          margin-top: 6px;
+          padding: 8px 10px;
+          border-radius: 4px;
+          background: #333;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 1.35;
+        }
+        .contrast-help:hover .contrast-help-text,
+        .contrast-help:focus .contrast-help-text {
+          display: block;
+        }
         .heatmap-output-container .shiny-output-error-validation {
           color: #A94442;
           font-size: 20px;
@@ -142,9 +172,11 @@ degpInput <- function(id) {
         }
       "))
     ),
-             sidebarLayout(
-               #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
-               sidebarPanel(
+        sidebarLayout(
+          #tags$head(tags$style(".shiny-notification {position: fixed; top: 60% ;left: 50%")),
+          sidebarPanel(
+          tags$div(
+              id = ns("selectionSetup"),
                  selectInput(
                    ns("dataSet"),
                    label = tags$span(class = "sidebar-step-heading", "1. Select Dataset"),
@@ -170,15 +202,25 @@ degpInput <- function(id) {
                  ),
                  br(),
                  br(),
-                 uiOutput(ns("groupInfoDisplay")),
+                 uiOutput(ns("groupInfoDisplay"))
+                ),
                  br(),
                  tags$div(
                    class = "sidebar-step-heading",
                    "3. Select Contrast",
-                   actionLink(
-                     ns("contrastHelp"),
-                     label = NULL,
-                     icon = icon("question-circle")
+                   tags$span(
+                     class = "contrast-help",
+                     tabindex = "0",
+                     icon("question-circle"),
+                     tags$span(
+                       class = "contrast-help-text",
+                       paste(
+                         "Contrast defines the comparison used to calculate differential",
+                         "expression. It specifies which group is compared against another",
+                         "(e.g., test vs. control), determining the direction and",
+                         "interpretation of the reported statistics."
+                       )
+                     )
                    )
                  ),
                  selectizeInput(ns("selectIn2"), "Select Test Group:", choices = c("")),
@@ -347,19 +389,6 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     
   })
 
-  observeEvent(input$contrastHelp, {
-    shinyalert::shinyalert(
-      title = "Contrast",
-      text = paste(
-        "Contrast defines the comparison used to calculate differential",
-        "expression. It specifies which group is compared against another",
-        "(e.g., test vs. control), determining the direction and",
-        "interpretation of the reported statistics."
-      ),
-      type = "info"
-    )
-  })
-  
   #Create datatable proxy to manipulate the table
   dataSetTable_proxy <- DT::dataTableProxy('dataSetTable')
   
@@ -567,6 +596,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
       return()
     }
     
+    shinyjs::addClass(id = "selectionSetup", class = "sidebar-section-disabled")
     hideTab("mainTabset", "Input")
     showTab("mainTabset", "Results", select = TRUE)
     showTab("mainTabset", "Heatmap")
@@ -666,6 +696,8 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
   # New selection
   observeEvent(input$changeSelection, {
+    shinyjs::removeClass(id = "selectionSetup", class = "sidebar-section-disabled")
+
     #Reset expression data
     state$degFit(NULL)
     state$fgseaStats$geneRanking <- NULL
