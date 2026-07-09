@@ -710,8 +710,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
 renderAnalysisOutputs <- function(input, output, session, degResults, exprData1, exprData2, fgseaResults) {
   output$resultsHeading <- renderUI({
     tagList(
-      tags$h3(paste0("Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1)),
-      helpText("Search table by regular expressions")
+      tags$h3(paste0("Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1))
     )
   })
 
@@ -726,8 +725,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
       adj.P.Val = "Adjusted P Value",
       B = "B Statistic",
       Annotation = "Annotations",
-      `Mean expression test` = "Mean expression test",
-      `Mean expression ctrl` = "Mean expression ctrl"
+      `Mean expression test` = paste0("Mean expression ", input$selectIn2),
+      `Mean expression ctrl` = paste0("Mean expression ", input$selectIn1)
     )
     hiddenColumns <- match(
       c("AveExpr", "t", "P.Value", "B"),
@@ -833,7 +832,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
     Significant[which(isSignificant & volcanoResults$logFC>=logFcThreshold)]=upregulatedLabel
     Significant[which(isSignificant & volcanoResults$logFC<=-logFcThreshold)]=downregulatedLabel
 
-    gene = sub("^xsq", "", rownames(volcanoResults))
+    gene = sub("^(exp|xsq)", "", rownames(volcanoResults))
     volcano_data=data.frame(gene,log_FC,log_pval,Significant)
     significantUpregulated <- volcano_data[volcano_data$Significant == upregulatedLabel, ]
     significantDownregulated <- volcano_data[volcano_data$Significant == downregulatedLabel, ]
@@ -891,7 +890,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
         aes(label = gene),
         color = "black",
         fill = "white",
-        size = 3,
+        size = 4.2,
         label.size = 0.15,
         label.padding = grid::unit(0.1, "lines"),
         max.overlaps = Inf,
@@ -1202,8 +1201,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
       theme_classic() +
       theme(
         text = element_text(size = 12),
-        axis.text.y = element_text(size = 10, margin = margin(r = 2)),
-        strip.text = element_text(size = 13),
+        axis.text.y = element_text(size = 13, margin = margin(r = 2)),
+        strip.text = element_text(size = 16),
         panel.spacing.y = grid::unit(0.1, "lines")
       )
 
