@@ -186,7 +186,7 @@ degpInput <- function(id) {
                  br(),
                  tags$div(class = "sidebar-step-heading", "4. Run Analysis"),
                  actionButton(ns("runAnalysis"), "Run"),
-                 actionButton(ns("newSelection"), "Change Selection")
+                 actionButton(ns("changeSelection"), "Change Selection")
                ),
                mainPanel(
                  tabsetPanel(id = ns("mainTabset"),
@@ -665,19 +665,19 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   })
   
   # New selection
-  observeEvent(input$newSelection, {
+  observeEvent(input$changeSelection, {
     #Reset expression data
     state$degFit(NULL)
     state$fgseaStats$geneRanking <- NULL
     
-    # #Reset sample data to its initial state without selections
-    # state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    #Reset sample data to its initial state without selections
+    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
 
     #Reset all UI elements 
-    # updateSelectizeInput(session, "selectIn1", selected = "")
-    # updateSelectizeInput(session, "selectIn2", selected = "")
-    # updateTextInput(session, "groupName", value = "")
-    # updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
+    updateSelectizeInput(session, "selectIn1", selected = "")
+    updateSelectizeInput(session, "selectIn2", selected = "")
+    updateTextInput(session, "groupName", value = "")
+    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
 
     #Return to first tab 
     showTab("mainTabset", "Input", select = TRUE)
@@ -686,8 +686,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     hideTab("mainTabset", "Volcano Plot")
     hideTab("mainTabset", "Pathway Analysis")
     
-    #Clear tables and plots 
-    output$resultsTable <- DT::renderDT({datatable(data.frame())})  
+    #Clear tables and plots  
     output$resultsHeading <- renderUI(NULL)
     output$volcanoPlot <- renderPlot({NULL})  
     output$volcanoHeading <- renderUI(NULL)
