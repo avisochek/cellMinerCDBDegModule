@@ -638,12 +638,11 @@ degpServer <- function(input, output, session, srcContentReactive, config){
         state$fgseaStats$geneRanking <- sort(geneRanking, decreasing = TRUE)
         #Perform FGSEA analysis
         set.seed(fgseaSeed)
-        fgseaResults <- fgsea(pathways = combinedGeneSets,
+        fgseaResults <- fgseaMultilevel(pathways = combinedGeneSets,
                               stats = state$fgseaStats$geneRanking,
-                              nperm = 10000,
                               minSize = 5,
                               maxSize = 500,
-                              scoreType = "std")
+                              nPermSimple = 10000)
         
         fgseaResults <- fgseaResults[with(fgseaResults, order(-NES)), ]
         fgseaResults <- fgseaResults[, c("pathway", "pval", "padj", "ES", "NES", "leadingEdge")] # add leading edge, add datatable scroll
@@ -1139,8 +1138,14 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
       filter(NES < 0) %>%
       slice_min(order_by = NES, n = 10, with_ties = FALSE) %>%
       mutate(.direction = "Downregulated")
+    upregulatedXAxisSum <- sum(range(topUpregulated$NES))
+    upregulatedXAxisBreaks <- pretty(topUpregulated$NES)
     topPathwayPlotData <- bind_rows(topDownregulated, topUpregulated) %>%
-      mutate(.direction = factor(.direction, levels = c("Downregulated", "Upregulated")))
+      mutate(
+        .direction = factor(.direction, levels = c("Downregulated", "Upregulated")),
+        plotNES = if_else(.direction == "Upregulated", upregulatedXAxisSum - NES, NES),
+        plotPathway = reorder(pathway, abs(NES)) # reverse order of upregulated facet
+      )
 
     shiny::validate(
       shiny::need(nrow(topPathwayPlotData) > 0, "No upregulated or downregulated Hallmark FGSEA pathways available.")
@@ -1150,8 +1155,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
     pathwayPlot <- ggplot(
       topPathwayPlotData,
       aes(
-        x = NES,
-        y = reorder(pathway, -NES),
+        x = plotNES,
+        y = plotPathway,
         fill = NES,
         size = adjustedPValueLog10
       )
@@ -1160,9 +1165,9 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
         data = topPathwayPlotData,
         aes(
           x = -Inf,
-          xend = NES,
-          y = reorder(pathway, -NES),
-          yend = reorder(pathway, -NES)
+          xend = plotNES,
+          y = plotPathway,
+          yend = plotPathway
         ),
         color = "grey80",
         linewidth = 0.3,
@@ -1170,7 +1175,16 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
       ) +
       geom_point(shape = 21, color = "grey35", stroke = 0.3) +
       facet_wrap(~ .direction, ncol = 1, scales = "free") +
-      scale_x_continuous(expand = expansion(mult = 0.05)) +
+      scale_x_continuous(
+        expand = expansion(mult = 0.05),
+        breaks = c( # make ticks consistent for upregulated facet
+          pretty(topDownregulated$NES),
+          upregulatedXAxisSum - upregulatedXAxisBreaks
+        ),
+        labels = function(nes) {
+          format(ifelse(nes > 0, upregulatedXAxisSum - nes, nes), trim = TRUE)
+        }
+      ) +
       scale_y_discrete(
         expand = expansion(add = 0.6),
         labels = function(pathway) {
