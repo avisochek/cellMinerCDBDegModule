@@ -703,7 +703,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     state$fgseaStats$geneRanking <- NULL
     
     #Reset sample data to its initial state without selections
-    state$sampleData(initializeSampleData(srcContentReactive()[[input$dataSet]][["sampleData"]]))
+    state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
 
     #Reset all UI elements 
     updateSelectizeInput(session, "selectIn1", selected = "")
