@@ -738,9 +738,12 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
 renderAnalysisOutputs <- function(input, output, session, degResults, exprData1, exprData2, fgseaResults) {
+  controlGroup <- input$selectIn1
+  testGroup <- input$selectIn2
+
   output$resultsHeading <- renderUI({
     tagList(
-      tags$h3(paste0("Differential Expression Analysis: ", input$selectIn2, " vs ", input$selectIn1))
+      tags$h3(paste0("Differential Expression Analysis: ", testGroup, " vs ", controlGroup))
     )
   })
 
@@ -755,8 +758,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
       adj.P.Val = "Adjusted P Value",
       B = "B Statistic",
       Annotation = "Annotations",
-      `Mean expression test` = paste0("Mean expression ", input$selectIn2),
-      `Mean expression ctrl` = paste0("Mean expression ", input$selectIn1)
+      `Mean expression test` = paste0("Mean expression ", testGroup),
+      `Mean expression ctrl` = paste0("Mean expression ", controlGroup)
     )
     hiddenColumns <- match(
       c("AveExpr", "t", "P.Value", "B"),
@@ -799,7 +802,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   
   output$volcanoHeading <- renderUI({
-    tags$h3(paste0("Volcano Plot: ", input$selectIn2, " vs ", input$selectIn1))
+    tags$h3(paste0("Volcano Plot: ", testGroup, " vs ", controlGroup))
   })
 
   volcanoResults <- degResults[abs(degResults$logFC) >= 0.10, ]
@@ -971,7 +974,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   output$heatmapHeading <- renderUI({
     tagList(
-      tags$h3(paste0("Heatmap: ", input$selectIn2, " vs ", input$selectIn1)),
+      tags$h3(paste0("Heatmap: ", testGroup, " vs ", controlGroup)),
       helpText(
         "Top 10 significant upregulated and top 10 significant downregulated genes",
         tags$br(),
@@ -1016,13 +1019,13 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
     expressionData <- cbind(exprData1, exprData2)
     groupColors <- setNames(
       c("#0072B2", "#D55E00"),
-      c(input$selectIn1, input$selectIn2)
+      c(controlGroup, testGroup)
     )
     columnGroups <- data.frame(
       Group = factor(
         c(
-          rep(input$selectIn1, ncol(exprData1)),
-          rep(input$selectIn2, ncol(exprData2))
+          rep(controlGroup, ncol(exprData1)),
+          rep(testGroup, ncol(exprData2))
         ),
         levels = names(groupColors)
       )
@@ -1097,7 +1100,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   # Display FGSEA results
   output$pathwayAnalysisHeading <- renderUI({
-    tags$h3(paste0("Pathway Analysis Results: ", input$selectIn2, " vs ", input$selectIn1))
+    tags$h3(paste0("Pathway Analysis Results: ", testGroup, " vs ", controlGroup))
   })
 
   output$pathwayAnalysisResults <- renderDT({
@@ -1146,7 +1149,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   })
 
   output$pathwayAnalysisTopDotPlotHeading <- renderUI({
-    tags$h3(paste0("Top 20 Pathways: ", input$selectIn2, " vs ", input$selectIn1))
+    tags$h3(paste0("Top 20 Pathways: ", testGroup, " vs ", controlGroup))
   })
 
   output$pathwayAnalysisTopDotPlot <- renderPlot({
