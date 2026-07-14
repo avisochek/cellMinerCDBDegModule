@@ -519,10 +519,15 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
   # Search by tissue type
   tissueSelectionOptions <- reactive({
-    data <- req(state$sampleData())
-    #choices <- unique(data$OncoTree1)
-    uniqueTissues <- unique(paste(data$OncoTree1, data$OncoTree2, sep = ": "))
+    data <- req(state$sampleData()) %>%
+      filter(!is.na(OncoTree1), OncoTree1 != "Other")
+
     uniqueOncoTree1 <- unique(data$OncoTree1)
+    uniqueTissues <- data %>%
+      filter(!is.na(OncoTree2), OncoTree2 != "Other") %>%
+      transmute(tissue = paste(OncoTree1, OncoTree2, sep = ": ")) %>%
+      pull(tissue) %>%
+      unique()
     
     combinedChoices <- unique(c(uniqueOncoTree1, uniqueTissues))
     combinedChoices
@@ -534,6 +539,11 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
   observeEvent(input$tissueGroup, {
     selectedTissues <- input$tissueGroup
+    if (is.null(selectedTissues)) {
+      selectedTissues <- character(0)
+    }
+    selectedTissues <- selectedTissues[selectedTissues != ""]
+
     data <- state$sampleData()
     selectedRows <- integer(0)
     for (selection in selectedTissues) {
@@ -549,7 +559,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     }
     # Update row selection in the DataTable
     DT::selectRows(dataSetTable_proxy, unique(selectedRows))
-  })
+  }, ignoreNULL = FALSE)
   
   #Reactive helper function for getting user-defined group names
   
@@ -597,6 +607,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     }
     
     shinyjs::addClass(id = "selectionSetup", class = "sidebar-section-disabled")
+    shinyjs::disable(selector = paste0("#", session$ns("selectionSetup"), " :input"))
     hideTab("mainTabset", "Input")
     showTab("mainTabset", "Results", select = TRUE)
     showTab("mainTabset", "Heatmap")
@@ -697,6 +708,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   # New selection
   observeEvent(input$changeSelection, {
     shinyjs::removeClass(id = "selectionSetup", class = "sidebar-section-disabled")
+    shinyjs::enable(selector = paste0("#", session$ns("selectionSetup"), " :input"))
 
     #Reset expression data
     state$degFit(NULL)
