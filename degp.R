@@ -196,7 +196,7 @@ degpInput <- function(id) {
                      4,
                      tags$div(
                        style = "margin-top: 25px;",
-                       actionButton(inputId = ns("addGroup"), label = "Add Group")
+                       actionButton(inputId = ns("addGroup"), label = "Add Group", class = "btn-light border-secondary btn-sm text-nowrap")
                      )
                    )
                  ),
@@ -227,8 +227,8 @@ degpInput <- function(id) {
                  selectizeInput(ns("selectIn1"), "Select Control Group:", choices = c("")),
                  br(),
                  tags$div(class = "sidebar-step-heading", "4. Run Analysis"),
-                 actionButton(ns("runAnalysis"), "Run"),
-                 actionButton(ns("changeSelection"), "Change Selection")
+                 actionButton(ns("runAnalysis"), "Run", class = "btn-light border-secondary btn-sm"),
+                 actionButton(ns("changeSelection"), "Change Selection", class = "btn-light border-secondary btn-sm")
                ),
                mainPanel(
                  tabsetPanel(id = ns("mainTabset"),
@@ -241,7 +241,11 @@ degpInput <- function(id) {
                                       uiOutput(ns("resultsHeading")),
                                       fluidRow(
                                         withSpinner(DT::DTOutput(ns("resultsTable"))),
-                                        downloadButton(ns("downloadResults"), "Download Results")
+                                        br(),
+                                        tags$div(
+                                          class = "col-auto",
+                                          downloadButton(ns("downloadResults"), "Download Results", class = "btn-light border-secondary btn-sm")
+                                        )
                                       )),
                              tabPanel("Volcano Plot",
                                       uiOutput(ns("volcanoHeading")),
@@ -265,7 +269,7 @@ degpInput <- function(id) {
                                             value = 1,
                                             step = 0.1
                                           ),
-                                          actionButton(ns("updateVolcanoPlot"), "Update Plot")
+                                          actionButton(ns("updateVolcanoPlot"), "Update Plot", class = "btn-light border-secondary btn-sm")
                                         ),
                                         column(
                                           3,
@@ -299,7 +303,11 @@ degpInput <- function(id) {
                                                  uiOutput(ns("pathwayAnalysisHeading")),
                                                  fluidRow(
                                                    DT::DTOutput(ns("pathwayAnalysisResults")),
-                                                   downloadButton(ns("downloadFgseaResults"), "Download Results")
+                                                   br(),
+                                                   tags$div(
+                                                     class = "col-auto",
+                                                     downloadButton(ns("downloadFgseaResults"), "Download Results", class = "btn-light border-secondary btn-sm")
+                                                   )
                                                  )),
                                         tabPanel("Top FGSEA Plot",
                                                  uiOutput(ns("pathwayAnalysisTopDotPlotHeading")),
@@ -372,6 +380,8 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   observe({
     state$degFit(NULL)
     state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
+    updateTextInput(session, "groupName", value = "")
+    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
   })
   
   output$dataSetTable <- DT::renderDT({
@@ -501,14 +511,14 @@ degpServer <- function(input, output, session, srcContentReactive, config){
           column(5, paste(groupCounts[[gname]], "cell lines")),
           column(2, tags$button(
             type = "button",
-            class = "btn btn-link btn-xs",
+            class = "btn-close",
             title = paste("Delete", gname),
+            `aria-label` = paste("Delete", gname),
             onclick = sprintf(
               "Shiny.setInputValue('%s', %s, {priority: 'event'})",
               session$ns("deleteGroup"),
               jsonlite::toJSON(gname, auto_unbox = TRUE)
-            ),
-            "x"
+            )
           ))
         )
       }))
@@ -606,6 +616,9 @@ degpServer <- function(input, output, session, srcContentReactive, config){
       return()
     }
     
+    updateTextInput(session, "groupName", value = "")
+    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
+
     shinyjs::addClass(id = "selectionSetup", class = "sidebar-section-disabled")
     shinyjs::disable(selector = paste0("#", session$ns("selectionSetup"), " :input"))
     hideTab("mainTabset", "Input")
@@ -717,11 +730,9 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     #Reset sample data to its initial state without selections
     state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
 
-    #Reset all UI elements 
+    #Reset contrast selections
     updateSelectizeInput(session, "selectIn1", selected = "")
     updateSelectizeInput(session, "selectIn2", selected = "")
-    updateTextInput(session, "groupName", value = "")
-    updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
 
     #Return to first tab 
     showTab("mainTabset", "Input", select = TRUE)
@@ -792,7 +803,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
                   list(visible = FALSE, targets = hiddenColumns)
                 )
               ),
-              filter = 'top'
+              filter = 'top',
+              selection = "none"
               
     )
     
@@ -1152,7 +1164,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
                   list(targets = c(0,1,2,3,4), visible = TRUE)
                 )
               ),
-              filter = 'top')
+              filter = 'top',
+              selection = "none")
    
    pathwayTable <- DT::formatSignif(pathwayTable, columns = c("pval", "padj"), digits = 3)
    pathwayTable <- DT::formatRound(pathwayTable, columns = c("ES", "NES"), digits = 2)
