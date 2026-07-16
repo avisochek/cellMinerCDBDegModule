@@ -272,7 +272,7 @@ degpInput <- function(id) {
                                           actionButton(ns("updateVolcanoPlot"), "Update Plot", class = "btn-light border-secondary btn-sm")
                                         ),
                                         column(
-                                          3,
+                                          8,
                                           style = "margin-top: 25px;",
                                           uiOutput(ns("volcanoSignificanceCounts"))
                                         )
@@ -1058,7 +1058,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
     
     expressionData <- expressionData[geneNames, , drop = FALSE]
     #Remove 'xsq' prefix from gene names
-    rownames(expressionData) <- gsub("^xsq", "", rownames(expressionData))
+    rownames(expressionData) <- gsub("^(exp|xsq)", "", rownames(expressionData))
     
     columnLabelSize <- round(min(16, max(8, 260 / ncol(expressionData))))
     # Height proportions for each component of the heatmap plot
@@ -1315,7 +1315,7 @@ calculateWilcoxonDEG <- function(rnaSeqData1, rnaSeqData2) {
   )
 
   #Remove 'xsq' prefix from gene names
-  results$Gene <- sub("^xsq", "", results$Gene)
+  results$Gene <- sub("^(exp|xsq)", "", results$Gene)
 
   #Gene set annotation
   if (require(geneSetPathwayAnalysis)){
