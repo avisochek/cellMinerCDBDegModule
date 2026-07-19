@@ -321,7 +321,7 @@ degpInput <- function(id) {
 }
 
 ### Server --------------------------------------------------------------------------------------------------
-degpServer <- function(input, output, session, srcContentReactive, config){
+degpServer <- function(input, output, session, expressionFilteredSrcContentReactive, config){
   
   hideTab("mainTabset", "Results")
   hideTab("mainTabset", "Heatmap")
@@ -333,28 +333,15 @@ degpServer <- function(input, output, session, srcContentReactive, config){
     sampleTable
   }
 
-  filteredSrcContent <- reactiveVal(NULL)
-
-  observeEvent(srcContentReactive(), {
-    expressionConfig <- Filter(hasExpressionData, config)
-    srcContent <- srcContentReactive()[names(expressionConfig)]
-
-    srcContent <- lapply(srcContent, function(dataSource) {
-      dataSource <- filterAllNAExpressionColumns(dataSource)
-      molPharmData <- dataSource[["molPharmData"]]
-      exprData <- if (!is.null(molPharmData$xsq)) molPharmData$xsq else molPharmData$exp
-      dataSource[["sampleData"]] <- dataSource[["sampleData"]][dataSource[["sampleData"]]$Name %in% colnames(exprData), , drop = FALSE]
-      dataSource
-    })
-
-    filteredSrcContent(srcContent)
+  observeEvent(expressionFilteredSrcContentReactive(), {
+    srcContent <- expressionFilteredSrcContentReactive()
     # Indicate in the dataset selection whether we are using rna-seq or microarray data for each dataset
     dataSourceChoices <- setNames(
       names(srcContent),
       vapply(names(srcContent), function(x) {
         mol_data <- srcContent[[x]][["molPharmData"]]
         assay_label <- if (!is.null(mol_data$xsq)) "RNA-seq" else "microarray"
-        paste0(expressionConfig[[x]][["displayName"]], " (", assay_label, ")")
+        paste0(config[[x]][["displayName"]], " (", assay_label, ")")
       }, character(1))
     )
     selectedDataSourceName <- if ("nci60" %in% dataSourceChoices) "nci60" else dataSourceChoices[[1]]
@@ -362,7 +349,7 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   }, once = TRUE)
 
   selectedDataSource <- reactive({
-    srcContent <- req(filteredSrcContent())
+    srcContent <- req(expressionFilteredSrcContentReactive())
     req(input$dataSet)
     srcContent[[input$dataSet]]
   })
@@ -1037,8 +1024,19 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
 
       incProgress(0.2, detail = "Preparing expression data...")
 
-    exprData1 <- data.frame(exprData1, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
-    exprData2 <- data.frame(exprData2, check.names = FALSE) %>% select_if(~ !all(is.na(.)))
+    exprData1 <- exprData1[geneNames, , drop = FALSE]
+    exprData2 <- exprData2[geneNames, , drop = FALSE]
+
+    exprData1 <- exprData1[
+      ,
+      colSums(!is.na(exprData1)) > 0,
+      drop = FALSE
+    ]
+    exprData2 <- exprData2[
+      ,
+      colSums(!is.na(exprData2)) > 0,
+      drop = FALSE
+    ]
 
     expressionData <- cbind(exprData1, exprData2)
     groupColors <- setNames(
