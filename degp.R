@@ -997,13 +997,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   })
 
   ## Heatmap
-  heatmapPlotCache <- NULL
-
   output$heatmapPlot <- renderPlotly({
-    if (!is.null(heatmapPlotCache)) {
-      return(heatmapPlotCache)
-    }
-    
     significantUpregulated <- degResults[degResults$adj.P.Val < 0.05 & degResults$logFC > 1, ]
     significantDownregulated <- degResults[degResults$adj.P.Val < 0.05 & degResults$logFC < -1, ]
 
@@ -1110,14 +1104,14 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
     heatmapPlot$x$layout$legend$font <- list(size = 16)
     # Leave column group title blank
     heatmapPlot$x$layout$legend$title$text <- ""
-    heatmapPlotCache <<- layout(
+    layout(
       heatmapPlot,
       autosize = TRUE
     )
-    heatmapPlotCache
     })
     
   })
+  outputOptions(output, "heatmapPlot", suspendWhenHidden = FALSE)
   
   
   # Display FGSEA results
