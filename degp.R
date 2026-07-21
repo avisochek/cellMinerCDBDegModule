@@ -456,7 +456,7 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
     groupCount <- sum(sampleTable$Group == groupName, na.rm = TRUE)
     
     #Reset selection in table
-    DT::selectRows(dataSetTable_proxy, NULL)
+    DT::selectRows(dataSetTable_proxy, integer(0))
     
     #Group creation notification
     shiny::showNotification(paste("Group", groupName, "now has", groupCount, "cell lines"))
@@ -728,19 +728,8 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
     hideTab("mainTabset", "Volcano Plot")
     hideTab("mainTabset", "Pathway Analysis")
     
-    #Clear tables and plots  
-    output$resultsHeading <- renderUI(NULL)
-    output$volcanoPlot <- renderPlot({NULL})  
-    output$volcanoHeading <- renderUI(NULL)
-    output$volcanoSignificanceCounts <- renderUI(NULL)
-    output$heatmapHeading <- renderUI(NULL)
-    output$pathwayAnalysisResults <- DT::renderDT({datatable(data.frame())}) 
-    output$pathwayAnalysisHeading <- renderUI(NULL)
-    output$pathwayAnalysisTopDotPlot <- renderPlot({NULL}) 
-    output$pathwayAnalysisTopDotPlotHeading <- renderUI(NULL)
-    
-    #Clear data table 
-    DT::selectRows(dataSetTable_proxy, NULL)
+    #Reset row selection
+    DT::selectRows(dataSetTable_proxy, integer(0))
     
   })
 }  
