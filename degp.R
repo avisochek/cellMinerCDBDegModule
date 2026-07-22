@@ -33,6 +33,19 @@ hasExpressionData <- function(dataSourceConfig) {
   }, logical(1)))
 }
 
+#' Select the configured expression assay for a data source.
+#'
+#' @param dataSourceConfig Data source configuration.
+#'
+#' @return The expression assay name.
+getExpressionAssayName <- function(dataSourceConfig) {
+  assayNames <- unlist(lapply(dataSourceConfig[["packages"]], function(packageConfig) {
+    packageConfig[["MolData"]][["eSetListName"]]
+  }), use.names = FALSE)
+
+  if ("xsq" %in% assayNames) "xsq" else "exp"
+}
+
 filterAllNAExpressionColumns <- function(dataSourceContent) {
   for (assayName in c("xsq", "exp")) {
     expressionData <- dataSourceContent[["molPharmData"]][[assayName]]
@@ -93,7 +106,7 @@ combinedGeneSets <- combineGeneSets(hallmarkGeneSets, dtbGeneSets)
 combinedGeneSets <- combineGeneSets(combinedGeneSets, reactomeGeneSets)
 
 ### User Interface --------------------------------------------------------------------------------------------------
-degpInput <- function(id) {
+degpInput <- function(id, expressionFilteredDataSourceChoices) {
   ns <- NS(id)
   tabPanel("Differential Expression Analysis",
   fluidPage(
@@ -180,7 +193,12 @@ degpInput <- function(id) {
                  selectInput(
                    ns("dataSet"),
                    label = tags$span(class = "sidebar-step-heading", "1. Select Dataset"),
-                   choices = character(0)
+                   choices = expressionFilteredDataSourceChoices,
+                   selected = if ("nci60" %in% expressionFilteredDataSourceChoices) {
+                     "nci60"
+                   } else {
+                     expressionFilteredDataSourceChoices[[1]]
+                   }
                  ),
                  br(),
                  br(),
@@ -321,7 +339,7 @@ degpInput <- function(id) {
 }
 
 ### Server --------------------------------------------------------------------------------------------------
-degpServer <- function(input, output, session, expressionFilteredSrcContentReactive, config){
+degpServer <- function(input, output, session, srcContentReactive, config){
   
   hideTab("mainTabset", "Results")
   hideTab("mainTabset", "Heatmap")
@@ -333,30 +351,11 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
     sampleTable
   }
 
-  observeEvent(expressionFilteredSrcContentReactive(), {
-    srcContent <- expressionFilteredSrcContentReactive()
-    # Indicate in the dataset selection whether we are using rna-seq or microarray data for each dataset
-    dataSourceChoices <- setNames(
-      names(srcContent),
-      vapply(names(srcContent), function(x) {
-        mol_data <- srcContent[[x]][["molPharmData"]]
-        assay_label <- if (!is.null(mol_data$xsq)) "RNA-seq" else "microarray"
-        paste0(config[[x]][["displayName"]], " (", assay_label, ")")
-      }, character(1))
-    )
-    selectedDataSourceName <- if ("nci60" %in% dataSourceChoices) "nci60" else dataSourceChoices[[1]]
-    updateSelectInput(session, "dataSet", choices = dataSourceChoices, selected = selectedDataSourceName)
-  }, once = TRUE)
-
-  selectedDataSource <- reactive({
-    srcContent <- req(expressionFilteredSrcContentReactive())
-    req(input$dataSet)
-    srcContent[[input$dataSet]]
-  })
-
   state <- list(
     #Reactive to store sample data with group assignments
     sampleData = reactiveVal(),
+    # Reactive to store the selected expression data
+    expressionData = reactiveVal(),
     # Reactive to store limma fit
     degFit = reactiveVal(NULL),
     # Reactive to store gene ranks for fgsea
@@ -365,8 +364,22 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
 
   #Initialize data with Group column 
   observe({
+    dataSet <- req(input$dataSet)
+    dataSource <- req(srcContentReactive())[[dataSet]]
+    assayName <- getExpressionAssayName(config[[dataSet]])
+    expressionData <- dataSource[["molPharmData"]][[assayName]]
+    keepSamples <- vapply(seq_len(ncol(expressionData)), function(columnIndex) {
+      !all(is.na(expressionData[, columnIndex]))
+    }, logical(1))
+    sampleData <- dataSource[["sampleData"]][
+      dataSource[["sampleData"]]$Name %in% colnames(expressionData)[keepSamples],
+      ,
+      drop = FALSE
+    ]
+
     state$degFit(NULL)
-    state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
+    state$expressionData(expressionData)
+    state$sampleData(initializeSampleData(sampleData))
     updateTextInput(session, "groupName", value = "")
     updateSelectizeInput(session, "tissueGroup", selected = character(0), choices = NULL)
   })
@@ -621,8 +634,7 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
     withProgress(message = 'Analysis in progress', {
         # Retrieve RNA-Seq data for groups
         sampleTable <- state$sampleData()
-        molPharmData <- selectedDataSource()[["molPharmData"]]
-        exprData <- if (!is.null(molPharmData$xsq)) molPharmData$xsq else molPharmData$exp
+        exprData <- state$expressionData()
         controlCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn1)]
         testCellLines <- sampleTable$Name[which(sampleTable$Group == input$selectIn2)]
         exprData1 <- exprData[, controlCellLines, drop = FALSE]
@@ -710,12 +722,12 @@ degpServer <- function(input, output, session, expressionFilteredSrcContentReact
     shinyjs::removeClass(id = "selectionSetup", class = "sidebar-section-disabled")
     shinyjs::enable(selector = paste0("#", session$ns("selectionSetup"), " :input"))
 
-    #Reset expression data
+    # Reset analysis results
     state$degFit(NULL)
     state$fgseaStats$geneRanking <- NULL
     
     #Reset sample data to its initial state without selections
-    state$sampleData(initializeSampleData(selectedDataSource()[["sampleData"]]))
+    state$sampleData(initializeSampleData(state$sampleData()))
 
     #Reset contrast selections
     updateSelectizeInput(session, "selectIn1", selected = "")
