@@ -46,6 +46,13 @@ getExpressionAssayName <- function(dataSourceConfig) {
   if ("xsq" %in% assayNames) "xsq" else "exp"
 }
 
+getExpressionDataSourceLabel <- function(dataSourceConfig) {
+  assayName <- getExpressionAssayName(dataSourceConfig)
+  assayLabel <- if (assayName == "xsq") "RNA-seq" else "microarray"
+
+  paste0(dataSourceConfig[["displayName"]], " (", assayLabel, ")")
+}
+
 filterAllNAExpressionColumns <- function(dataSourceContent) {
   for (assayName in c("xsq", "exp")) {
     expressionData <- dataSourceContent[["molPharmData"]][[assayName]]
@@ -385,13 +392,16 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   })
   
   output$dataSetTable <- DT::renderDT({
-    sampleData <- req(state$sampleData())
+    sampleData <- req(state$sampleData()) %>%
+      select(
+        Name, TissueType, OncoTree1, OncoTree2, Group,
+        any_of(c("NAPY", "TNBC", "EMT"))
+      )
     datatable(sampleData,
-              #Column selection below to restrict to cell line, tissue type information (source + OncoTree), and Group.
+              rownames = FALSE,
               options = list(
-                columnDefs=list(
-                  list(visible = FALSE, targets = c(0,5,6,7:(ncol(sampleData)-1)))
-                )
+                scrollX = TRUE,
+                autoWidth = TRUE
               ),
               filter = 'top',
               # Enable row selection
@@ -711,7 +721,16 @@ degpServer <- function(input, output, session, srcContentReactive, config){
           }
         )
         
-        renderAnalysisOutputs(input, output, session, degResults, exprData1, exprData2, fgseaResults)
+        renderAnalysisOutputs(
+          input,
+          output,
+          session,
+          degResults,
+          exprData1,
+          exprData2,
+          fgseaResults,
+          getExpressionDataSourceLabel(config[[input$dataSet]])
+        )
         
         incProgress(0.2, detail = "Finalizing analysis...")
     })
@@ -748,13 +767,29 @@ degpServer <- function(input, output, session, srcContentReactive, config){
   
   
 ### Analysis Outputs --------------------------------------------------------------------------------------------------
-renderAnalysisOutputs <- function(input, output, session, degResults, exprData1, exprData2, fgseaResults) {
+renderAnalysisOutputs <- function(
+  input,
+  output,
+  session,
+  degResults,
+  exprData1,
+  exprData2,
+  fgseaResults,
+  dataSourceLabel
+) {
   controlGroup <- input$selectIn1
   testGroup <- input$selectIn2
+  analysisTitle <- paste0(
+    dataSourceLabel,
+    ": ",
+    testGroup,
+    " vs ",
+    controlGroup
+  )
 
   output$resultsHeading <- renderUI({
     tagList(
-      tags$h3(paste0("Differential Expression Analysis: ", testGroup, " vs ", controlGroup))
+      tags$h3(paste0("Differential Expression Analysis: ", analysisTitle))
     )
   })
 
@@ -782,6 +817,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
               extensions = "Buttons",
               colnames = unname(resultsColumnNames[colnames(degResults)]),
               options = list(
+                scrollX = TRUE,
+                autoWidth = TRUE,
                 dom = "Bfrtip",
                 buttons = list(
                   list(extend = "colvis", text = "Column visibility")
@@ -814,7 +851,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   
   output$volcanoHeading <- renderUI({
-    tags$h3(paste0("Volcano Plot: ", testGroup, " vs ", controlGroup))
+    tags$h3(paste0("Volcano Plot: ", analysisTitle))
   })
 
   volcanoResults <- degResults[abs(degResults$logFC) >= 0.10, ]
@@ -986,7 +1023,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   output$heatmapHeading <- renderUI({
     tagList(
-      tags$h3(paste0("Heatmap: ", testGroup, " vs ", controlGroup)),
+      tags$h3(paste0("Heatmap: ", analysisTitle)),
       helpText(
         "Top 10 significant upregulated and top 10 significant downregulated genes",
         tags$br(),
@@ -1117,7 +1154,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   
   # Display FGSEA results
   output$pathwayAnalysisHeading <- renderUI({
-    tags$h3(paste0("Pathway Analysis Results: ", testGroup, " vs ", controlGroup))
+    tags$h3(paste0("Pathway Analysis Results: ", analysisTitle))
   })
 
   output$pathwayAnalysisResults <- renderDT({
@@ -1153,6 +1190,8 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
                 return table;
               "),
               options = list(
+                scrollX = TRUE,
+                autoWidth = TRUE,
                 columnDefs = list(
                   list(targets = c(0,1,2,3,4), visible = TRUE)
                 )
@@ -1167,7 +1206,7 @@ renderAnalysisOutputs <- function(input, output, session, degResults, exprData1,
   })
 
   output$pathwayAnalysisTopDotPlotHeading <- renderUI({
-    tags$h3(paste0("Top 20 Pathways: ", testGroup, " vs ", controlGroup))
+    tags$h3(paste0("Top 20 Pathways: ", analysisTitle))
   })
 
   output$pathwayAnalysisTopDotPlot <- renderPlot({
